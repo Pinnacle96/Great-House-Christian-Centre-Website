@@ -4,3 +4,5 @@
 npm-debug.log*
 /.chrome-profile-*/
 /storage_hero_*.png
+/.deploy_keys/
+/.ghcc_deploy_key*

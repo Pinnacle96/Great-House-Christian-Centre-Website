@@ -15,10 +15,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: ghcc.pinnacletechhub.com.ng
-  RELEASES_ROOT: /home/ghcc/releases
-  CURRENT_LINK:  /home/ghcc/current
-  DOC_ROOT:      /home/ghcc/public_html
+  DEPLOY_HOST: "82.25.113.81"
+  DEPLOY_PORT: "65002"
+  DEPLOY_URL:  "https://ghcc.pinnacletechhub.com.ng"
+  RELEASES_ROOT: /home/u572560474/deploy/ghcc/releases
+  CURRENT_LINK:  /home/u572560474/deploy/ghcc/current
+  DOC_ROOT:      /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
 
 jobs:
   rollback:
@@ -28,13 +30,23 @@ jobs:
       name: production
       url: https://ghcc.pinnacletechhub.com.ng
     steps:
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key:     ${{ secrets.SSH_PRIVATE_KEY }}
-          name:    id_ed25519
-          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
-          if_key_exists: replace
+      - name: Configure SSH (key + known_hosts)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "SSH_KNOWN_HOSTS secret not set — scanning host key on the runner."
+            ssh-keyscan -p "$DEPLOY_PORT" -t ed25519,ecdsa-sha2-nistp256,rsa "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 644 ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts || { echo '::error::known_hosts is empty — cannot verify host.'; exit 1; }
 
       - name: Resolve target release
         id: target
@@ -44,15 +56,12 @@ jobs:
         run: |
           if [ -n "$WANTED" ]; then
             TAG="$WANTED"
-            # Verify the requested tag actually exists on the host
-            ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "[ -d '$RELEASES_ROOT/$TAG' ]" \
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "[ -d '$RELEASES_ROOT/$TAG' ]" \
               || { echo "::error::Requested release '$TAG' not found under $RELEASES_ROOT/ on host"; exit 1; }
           else
-            # Pick the release immediately before the current one
-            TAG=$(ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            TAG=$(ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
               set -euo pipefail
               CURRENT_REAL=\$(readlink -f '$CURRENT_LINK' 2>/dev/null || echo '')
-              # ls -1t = newest-first; we want the first entry *not* equal to current target
               ls -1t '$RELEASES_ROOT' | while read -r dir; do
                 if [ -z \"\$CURRENT_REAL\" ] || [ \"\$dir\" != \"\$(basename \"\$CURRENT_REAL\")\" ]; then
                   echo \"\$dir\"
@@ -64,19 +73,19 @@ jobs:
           fi
           echo "target=$TAG" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Swap `current` symlink to target release (atomic)
+      - name: Swap current symlink to target release (atomic)
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ steps.target.outputs.target }}
         run: |
-          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             TARGET='$RELEASES_ROOT/$TAG'
             [ -d \"\$TARGET\" ] || { echo 'Target release directory missing'; exit 1; }
             ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
             mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
             ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
-            curl -fsSI -o /dev/null --max-time 20 'https://$DEPLOY_HOST/' \
+            curl -fsSI -o /dev/null --max-time 25 '$DEPLOY_URL/' \
               && echo 'Rollback smoke check passed.' \
               || (echo '::warning::Rollback smoke check did not return OK — investigate immediately.'; true)
           "
@@ -85,7 +94,7 @@ jobs:
         run: |
           echo "## Rollback complete :rewind:" >> "$GITHUB_STEP_SUMMARY"
           echo "- Rolled back to release: \`${{ steps.target.outputs.target }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Live: https://$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo ">" >> "$GITHUB_STEP_SUMMARY"
-          echo "> Remember: if you also need to revert DB state, restore the most recent DB backup taken *before* the bad deploy." >> "$GITHUB_STEP_SUMMARY"
-          echo "> Schema changes in this project are designed to be additive/idempotent, but DDL is not reversible by this workflow." >> "$GITHUB_STEP_SUMMARY"
+          echo "> Reminder: this reverts CODE/ASSETS only. To revert DATABASE state, restore the DB backup taken before the bad deploy." >> "$GITHUB_STEP_SUMMARY"
+          echo "> Schema changes here are additive/idempotent, but DDL is not auto-reversible." >> "$GITHUB_STEP_SUMMARY"

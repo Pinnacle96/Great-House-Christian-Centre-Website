@@ -16,11 +16,15 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DEPLOY_HOST: ghcc.pinnacletechhub.com.ng
-  RELEASES_ROOT: /home/ghcc/releases
-  SHARED_ROOT:   /home/ghcc/shared
-  CURRENT_LINK:  /home/ghcc/current
-  DOC_ROOT:      /home/ghcc/public_html
+  DEPLOY_HOST: "82.25.113.81"
+  DEPLOY_PORT: "65002"
+  DEPLOY_URL:  "https://ghcc.pinnacletechhub.com.ng"
+  # --- Hostinger paths (account u572560474) ---
+  DEPLOY_BASE:  /home/u572560474/deploy/ghcc
+  RELEASES_ROOT: /home/u572560474/deploy/ghcc/releases
+  SHARED_ROOT:   /home/u572560474/deploy/ghcc/shared
+  CURRENT_LINK:  /home/u572560474/deploy/ghcc/current
+  DOC_ROOT:      /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
 
 jobs:
   build:
@@ -60,6 +64,7 @@ jobs:
       - name: Sanitize build (remove dev tools & scripts)
         run: |
           rm -rf node_modules
+          rm -rf .deploy_keys
           rm -f .env.*
           rm -f package.json package-lock.json
           rm -f tailwind.config.js
@@ -68,8 +73,10 @@ jobs:
       - name: Remove setup / seed / one-off scripts from artifact
         run: |
           rm -f  add_slug_to_events.php check_events_table.php fix_password.php \
-                 seed_*.php setup_*.php update_password.php update_db.php \
-                 setup_multibranch_schema.php PRODUCTION_CHECKLIST.md README.md
+                 seed_*.php update_password.php \
+                 PRODUCTION_CHECKLIST.md README.md
+          # NOTE: setup_*.php and update_db.php are kept — needed for migrations,
+          # and are blocked from web access by .htaccess.
 
       - name: Ensure writable directories exist in release
         run: |
@@ -84,6 +91,7 @@ jobs:
             --exclude='_release' \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='.deploy_keys' \
             --exclude='.env' \
             ./ _release/${{ steps.release.outputs.tag }}/
           tar -C _release -czf ghcc-release-${{ steps.release.outputs.tag }}.tar.gz .
@@ -96,7 +104,7 @@ jobs:
           retention-days: 30
 
   deploy:
-    name: Deploy to ghcc.pinnacletechhub.com.ng
+    name: Deploy to Hostinger
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -108,22 +116,33 @@ jobs:
         with:
           name: ghcc-release-${{ needs.build.outputs.release_tag }}
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key:     ${{ secrets.SSH_PRIVATE_KEY }}
-          name:    id_ed25519
-          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
-          if_key_exists: replace
+      - name: Configure SSH (key + known_hosts)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "SSH_KNOWN_HOSTS secret not set — scanning host key on the runner."
+            ssh-keyscan -p "$DEPLOY_PORT" -t ed25519,ecdsa-sha2-nistp256,rsa "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 644 ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts || { echo '::error::known_hosts is empty — cannot verify host.'; exit 1; }
 
       - name: Prepare directories on host
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$DEPLOY_HOST" "
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             mkdir -p '$RELEASES_ROOT' '$SHARED_ROOT/logs' '$SHARED_ROOT/assets/uploads/sermons/audio' '$SHARED_ROOT/assets/logo'
+            mkdir -p \"\$(dirname '$DOC_ROOT')\"
             touch '$SHARED_ROOT/.env'
             chmod 600 '$SHARED_ROOT/.env'
           "
@@ -133,8 +152,8 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
-          scp -o BatchMode=yes "ghcc-release-${TAG}.tar.gz" "$SSH_USER@$DEPLOY_HOST:/tmp/ghcc-release-${TAG}.tar.gz"
-          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+          scp -P "$DEPLOY_PORT" -o BatchMode=yes "ghcc-release-${TAG}.tar.gz" "$SSH_USER@$DEPLOY_HOST:/tmp/ghcc-release-${TAG}.tar.gz"
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             mkdir -p '$RELEASES_ROOT/$TAG'
             tar -xzf '/tmp/ghcc-release-${TAG}.tar.gz' -C '$RELEASES_ROOT/$TAG'
@@ -146,7 +165,7 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
-          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             R='$RELEASES_ROOT/$TAG'
             rm -rf   \"\$R/.env\" \"\$R/logs\" \"\$R/assets/uploads\" \"\$R/assets/logo\"
@@ -163,13 +182,16 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
-          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             R='$RELEASES_ROOT/$TAG'
             cd \"\$R\"
-            [ -f setup_multibranch_schema.php ] && php setup_multibranch_schema.php || true
-            [ -f update_db.php ]               && php update_db.php               || true
-            [ -f schema_production_settings.php ] && php schema_production_settings.php || true
+            [ -f setup_roles_superadmin_branch_admin.php ] && php setup_roles_superadmin_branch_admin.php || true
+            [ -f setup_multibranch_schema.php ]   && php setup_multibranch_schema.php   || true
+            [ -f setup_registration_schema.php ]  && php setup_registration_schema.php  || true
+            [ -f setup_registration_schema_v2.php ] && php setup_registration_schema_v2.php || true
+            [ -f setup_team_schema.php ]          && php setup_team_schema.php          || true
+            [ -f update_db.php ]                  && php update_db.php                  || true
             echo 'DB migrations completed.'
           "
 
@@ -179,19 +201,23 @@ jobs:
           TAG:            ${{ needs.build.outputs.release_tag }}
           KEEP:           ${{ github.event.inputs.release_keep_count || '5' }}
         run: |
-          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             TARGET='$RELEASES_ROOT/$TAG'
             # Atomic symlink replace via mv
             ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
             mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
-            # Wire Hostinger docroot to the release via symlink (preserves docroot path)
+            # Wire the Hostinger subdomain docroot to the active release.
+            # If public_html already exists as a real directory, back it up once.
+            if [ -e '$DOC_ROOT' ] && [ ! -L '$DOC_ROOT' ]; then
+              mv '$DOC_ROOT' '${DOC_ROOT}.bak-$TAG'
+            fi
             ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
-            # Warm OPcache / first-hit check
-            curl -fsSI -o /dev/null --max-time 20 'https://$DEPLOY_HOST/' \
-              && echo 'Site responded 200/30x after swap' \
+            # Post-deploy smoke check
+            curl -fsSI -o /dev/null --max-time 25 '$DEPLOY_URL/' \
+              && echo 'Site responded OK after swap' \
               || (echo '::warning::Post-deploy smoke check did not return OK — check live site.'; true)
-            # Retention: keep only the newest N releases (current + N-1 older)
+            # Retention: keep only the newest N releases
             cd '$RELEASES_ROOT'
             ls -1t | tail -n +\$((KEEP+1)) | xargs -r -I{} rm -rf {}
           "
@@ -200,5 +226,8 @@ jobs:
         run: |
           echo "## Deployment succeeded :rocket:" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release tag: \`${{ needs.build.outputs.release_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Live: https://$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Rollback via: \`gh workflow run rollback-production.yml -f release=<older-tag>\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Host: \`$SSH_USER@$DEPLOY_HOST:$DEPLOY_PORT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Rollback via: Actions -> Rollback Production -> Run workflow" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
