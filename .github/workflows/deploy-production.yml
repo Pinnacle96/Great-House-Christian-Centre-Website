@@ -5,11 +5,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      release_keep_count:
-        description: 'Number of old releases to keep after deploy'
-        required: false
-        default: '5'
 
 concurrency:
   group: production-deploy
@@ -20,11 +15,8 @@ env:
   DEPLOY_PORT: "65002"
   DEPLOY_URL:  "https://ghcc.pinnacletechhub.com.ng"
   # --- Hostinger paths (account u572560474) ---
-  DEPLOY_BASE:  /home/u572560474/deploy/ghcc
-  RELEASES_ROOT: /home/u572560474/deploy/ghcc/releases
-  SHARED_ROOT:   /home/u572560474/deploy/ghcc/shared
-  CURRENT_LINK:  /home/u572560474/deploy/ghcc/current
-  DOC_ROOT:      /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
+  DOC_ROOT:     /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
+  BACKUP_ROOT:  /home/u572560474/deploy/ghcc/backups
 
 jobs:
   build:
@@ -84,17 +76,17 @@ jobs:
           mkdir -p assets/uploads/sermons/audio
           mkdir -p assets/logo
 
-      - name: Package release artefact
+      - name: Package deploy tree
         run: |
-          mkdir -p _release/${{ steps.release.outputs.tag }}
+          mkdir -p _deploy
           rsync -a \
-            --exclude='_release' \
+            --exclude='_deploy' \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='.deploy_keys' \
             --exclude='.env' \
-            ./ _release/${{ steps.release.outputs.tag }}/
-          tar -C _release -czf ghcc-release-${{ steps.release.outputs.tag }}.tar.gz .
+            ./ _deploy/
+          tar -C _deploy -czf ghcc-release-${{ steps.release.outputs.tag }}.tar.gz .
 
       - name: Upload artefact
         uses: actions/upload-artifact@v4
@@ -156,60 +148,60 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare directories on host
+      - name: Extract artefact on runner
+        env:
+          TAG: ${{ needs.build.outputs.release_tag }}
+        run: |
+          mkdir -p _tree
+          tar -xzf "ghcc-release-${TAG}.tar.gz" -C _tree
+          # Ensure a trailing slash-friendly source directory.
+          ls -la _tree
+
+      - name: Backup current site on host
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
           TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
-            mkdir -p '$RELEASES_ROOT' '$SHARED_ROOT/logs' '$SHARED_ROOT/assets/uploads/sermons/audio' '$SHARED_ROOT/assets/logo'
-            mkdir -p \"\$(dirname '$DOC_ROOT')\"
-            touch '$SHARED_ROOT/.env'
-            chmod 600 '$SHARED_ROOT/.env'
+            mkdir -p '$BACKUP_ROOT'
+            mkdir -p '$DOC_ROOT'
+            # Ensure persistent, user-owned content dirs exist so rsync excludes protect them.
+            mkdir -p '$DOC_ROOT/logs' '$DOC_ROOT/assets/uploads/sermons/audio' '$DOC_ROOT/assets/logo'
+            # Back up code (exclude bulky/user content) so a rollback can restore it.
+            if [ -n \"\$(ls -A '$DOC_ROOT' 2>/dev/null)\" ]; then
+              tar -czf '$BACKUP_ROOT/backup-$TAG.tar.gz' \
+                  -C '$DOC_ROOT' \
+                  --exclude='assets/uploads' \
+                  --exclude='logs' \
+                  . || echo '::warning::Backup archive step reported an issue; continuing.'
+            fi
+            # Retention: keep only the newest 5 backups.
+            cd '$BACKUP_ROOT'
+            ls -1t backup-*.tar.gz 2>/dev/null | tail -n +6 | xargs -r rm -f
           "
 
-      - name: Upload release
+      - name: Deploy via rsync (into docroot, preserving .env & uploads)
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
-          TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
-          scp -P "$DEPLOY_PORT" -o BatchMode=yes "ghcc-release-${TAG}.tar.gz" "$SSH_USER@$DEPLOY_HOST:/tmp/ghcc-release-${TAG}.tar.gz"
-          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
-            set -euo pipefail
-            mkdir -p '$RELEASES_ROOT/$TAG'
-            tar -xzf '/tmp/ghcc-release-${TAG}.tar.gz' -C '$RELEASES_ROOT/$TAG'
-            rm -f '/tmp/ghcc-release-${TAG}.tar.gz'
-          "
+          rsync -az --delete \
+            -e "ssh -p $DEPLOY_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            --exclude='.env' \
+            --exclude='/assets/uploads/' \
+            --exclude='/assets/logo/' \
+            --exclude='/logs/' \
+            _tree/ "$SSH_USER@$DEPLOY_HOST:$DOC_ROOT/"
 
-      - name: Symlink shared storage into new release
+      - name: Verify config + run idempotent DB migrations
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
-          TAG:      ${{ needs.build.outputs.release_tag }}
         run: |
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
-            R='$RELEASES_ROOT/$TAG'
-            # Ensure parent directories exist in the release before symlinking.
-            mkdir -p \"\$R/logs\" \"\$R/assets\"
-            rm -rf   \"\$R/.env\" \"\$R/logs\" \"\$R/assets/uploads\" \"\$R/assets/logo\"
-            ln -sfn  '$SHARED_ROOT/.env'           \"\$R/.env\"
-            ln -sfn  '$SHARED_ROOT/logs'           \"\$R/logs\"
-            ln -sfn  '$SHARED_ROOT/assets/uploads' \"\$R/assets/uploads\"
-            ln -sfn  '$SHARED_ROOT/assets/logo'    \"\$R/assets/logo\"
-            php -r \"require '\$R/config/config.php'; new App\Core\Database();\" \
+            cd '$DOC_ROOT'
+            php -r \"require 'config/config.php'; new App\\\\Core\\\\Database();\" \
               && echo 'PHP + DB config loads OK'
-          "
-
-      - name: Run idempotent DB migrations (from NEW release)
-        env:
-          SSH_USER: ${{ secrets.SSH_USER }}
-          TAG:      ${{ needs.build.outputs.release_tag }}
-        run: |
-          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
-            set -euo pipefail
-            R='$RELEASES_ROOT/$TAG'
-            cd \"\$R\"
             [ -f setup_roles_superadmin_branch_admin.php ] && php setup_roles_superadmin_branch_admin.php || true
             [ -f setup_multibranch_schema.php ]   && php setup_multibranch_schema.php   || true
             [ -f setup_registration_schema.php ]  && php setup_registration_schema.php  || true
@@ -219,39 +211,19 @@ jobs:
             echo 'DB migrations completed.'
           "
 
-      - name: Atomic swap (current -> new release) + wire docroot
-        env:
-          SSH_USER:       ${{ secrets.SSH_USER }}
-          TAG:            ${{ needs.build.outputs.release_tag }}
-          KEEP:           ${{ github.event.inputs.release_keep_count || '5' }}
+      - name: Post-deploy smoke check
         run: |
-          ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
-            set -euo pipefail
-            TARGET='$RELEASES_ROOT/$TAG'
-            # Atomic symlink replace via mv
-            ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
-            mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
-            # Wire the Hostinger subdomain docroot to the active release.
-            # If public_html already exists as a real directory, back it up once.
-            if [ -e '$DOC_ROOT' ] && [ ! -L '$DOC_ROOT' ]; then
-              mv '$DOC_ROOT' '${DOC_ROOT}.bak-$TAG'
-            fi
-            ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
-            # Post-deploy smoke check
-            curl -fsSI -o /dev/null --max-time 25 '$DEPLOY_URL/' \
-              && echo 'Site responded OK after swap' \
-              || (echo '::warning::Post-deploy smoke check did not return OK — check live site.'; true)
-            # Retention: keep only the newest N releases
-            cd '$RELEASES_ROOT'
-            ls -1t | tail -n +\$((KEEP+1)) | xargs -r -I{} rm -rf {}
-          "
+          curl -fsSI -o /dev/null --max-time 25 "$DEPLOY_URL/" \
+            && echo 'Site responded OK' \
+            || echo '::warning::Post-deploy smoke check did not return OK — check the live site.'
 
       - name: Summary
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           echo "## Deployment succeeded :rocket:" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release tag: \`${{ needs.build.outputs.release_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Host: \`$SSH_USER@$DEPLOY_HOST:$DEPLOY_PORT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Docroot: \`$DOC_ROOT\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Live: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Rollback via: Actions -> Rollback Production -> Run workflow" >> "$GITHUB_STEP_SUMMARY"
-        env:
-          SSH_USER: ${{ secrets.SSH_USER }}

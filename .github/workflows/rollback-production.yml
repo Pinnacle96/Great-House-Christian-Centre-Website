@@ -3,10 +3,10 @@ name: Rollback Production (ghcc.pinnacletechhub.com.ng)
 on:
   workflow_dispatch:
     inputs:
-      release:
+      backup:
         description: >
-          Release tag to roll back TO (e.g. 20260804-101530-abcdef).
-          Leave blank = roll back to the immediately previous release.
+          Backup file name to restore FROM (e.g. backup-20260804-101530-abcdef.tar.gz).
+          Leave blank = restore the most recent backup taken before the last deploy.
         required: false
         default: ''
 
@@ -18,13 +18,12 @@ env:
   DEPLOY_HOST: "82.25.113.81"
   DEPLOY_PORT: "65002"
   DEPLOY_URL:  "https://ghcc.pinnacletechhub.com.ng"
-  RELEASES_ROOT: /home/u572560474/deploy/ghcc/releases
-  CURRENT_LINK:  /home/u572560474/deploy/ghcc/current
-  DOC_ROOT:      /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
+  DOC_ROOT:     /home/u572560474/domains/pinnacletechhub.com.ng/public_html/__ghcc
+  BACKUP_ROOT:  /home/u572560474/deploy/ghcc/backups
 
 jobs:
   rollback:
-    name: Atomic rollback
+    name: Restore from backup
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -70,43 +69,43 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve target release
+      - name: Resolve backup to restore
         id: target
         env:
-          SSH_USER:    ${{ secrets.SSH_USER }}
-          WANTED:      ${{ github.event.inputs.release }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          WANTED:   ${{ github.event.inputs.backup }}
         run: |
           if [ -n "$WANTED" ]; then
-            TAG="$WANTED"
-            ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "[ -d '$RELEASES_ROOT/$TAG' ]" \
-              || { echo "::error::Requested release '$TAG' not found under $RELEASES_ROOT/ on host"; exit 1; }
+            FILE="$WANTED"
+            ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "[ -f '$BACKUP_ROOT/$FILE' ]" \
+              || { echo "::error::Requested backup '$FILE' not found under $BACKUP_ROOT/ on host"; exit 1; }
           else
-            TAG=$(ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            FILE=$(ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
               set -euo pipefail
-              CURRENT_REAL=\$(readlink -f '$CURRENT_LINK' 2>/dev/null || echo '')
-              ls -1t '$RELEASES_ROOT' | while read -r dir; do
-                if [ -z \"\$CURRENT_REAL\" ] || [ \"\$dir\" != \"\$(basename \"\$CURRENT_REAL\")\" ]; then
-                  echo \"\$dir\"
-                  break
-                fi
-              done
+              ls -1t '$BACKUP_ROOT'/backup-*.tar.gz 2>/dev/null | head -n 1 | xargs -r basename
             ")
-            [ -n "$TAG" ] || { echo "::error::No previous release to roll back to."; exit 1; }
+            [ -n "$FILE" ] || { echo "::error::No backup archive found to restore from."; exit 1; }
           fi
-          echo "target=$TAG" | tee -a "$GITHUB_OUTPUT"
+          echo "file=$FILE" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Swap current symlink to target release (atomic)
+      - name: Restore backup into docroot (preserving .env & uploads)
         env:
           SSH_USER: ${{ secrets.SSH_USER }}
-          TAG:      ${{ steps.target.outputs.target }}
+          FILE:     ${{ steps.target.outputs.file }}
         run: |
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
-            TARGET='$RELEASES_ROOT/$TAG'
-            [ -d \"\$TARGET\" ] || { echo 'Target release directory missing'; exit 1; }
-            ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
-            mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
-            ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
+            ARCHIVE='$BACKUP_ROOT/$FILE'
+            [ -f \"\$ARCHIVE\" ] || { echo 'Backup archive missing'; exit 1; }
+            cd '$DOC_ROOT'
+            # Remove current code but keep persistent content (.env, uploads, logs).
+            find . -mindepth 1 -maxdepth 1 \
+              ! -name '.env' \
+              ! -name 'assets' \
+              ! -name 'logs' \
+              -exec rm -rf {} +
+            # assets/ is kept, but its code subdirs will be overwritten by extract; uploads/logo survive.
+            tar -xzf \"\$ARCHIVE\" -C '$DOC_ROOT'
             curl -fsSI -o /dev/null --max-time 25 '$DEPLOY_URL/' \
               && echo 'Rollback smoke check passed.' \
               || (echo '::warning::Rollback smoke check did not return OK — investigate immediately.'; true)
@@ -115,8 +114,8 @@ jobs:
       - name: Summary
         run: |
           echo "## Rollback complete :rewind:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Rolled back to release: \`${{ steps.target.outputs.target }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Restored from backup: \`${{ steps.target.outputs.file }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Live: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo ">" >> "$GITHUB_STEP_SUMMARY"
-          echo "> Reminder: this reverts CODE/ASSETS only. To revert DATABASE state, restore the DB backup taken before the bad deploy." >> "$GITHUB_STEP_SUMMARY"
+          echo "> Reminder: this reverts CODE/ASSETS only (.env & uploads are preserved). To revert DATABASE state, restore the DB backup taken before the bad deploy." >> "$GITHUB_STEP_SUMMARY"
           echo "> Schema changes here are additive/idempotent, but DDL is not auto-reversible." >> "$GITHUB_STEP_SUMMARY"
