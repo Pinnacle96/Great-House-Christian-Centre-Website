@@ -135,10 +135,26 @@ jobs:
             printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           else
             echo "SSH_KNOWN_HOSTS secret not set — scanning host key on the runner."
-            ssh-keyscan -p "$DEPLOY_PORT" -t ed25519,ecdsa-sha2-nistp256,rsa "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+            # Retry the scan: ssh-keyscan can transiently return non-zero / empty
+            # against a non-standard port. Do not let a single failure abort the step.
+            : > ~/.ssh/known_hosts
+            for attempt in 1 2 3 4 5; do
+              ssh-keyscan -T 15 -p "$DEPLOY_PORT" -t ed25519,ecdsa-sha2-nistp256,rsa "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+              if [ -s ~/.ssh/known_hosts ]; then
+                echo "Host key captured on attempt $attempt."
+                break
+              fi
+              echo "Scan attempt $attempt produced no key — retrying in 5s."
+              sleep 5
+            done
           fi
           chmod 644 ~/.ssh/known_hosts
-          test -s ~/.ssh/known_hosts || { echo '::error::known_hosts is empty — cannot verify host.'; exit 1; }
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo '::error::known_hosts is empty — the runner could not fetch the host key.'
+            echo '::error::Fix: add the SSH_KNOWN_HOSTS repo secret. Generate it locally (or from any machine that can reach the host) with:'
+            echo "::error::  ssh-keyscan -p $DEPLOY_PORT $DEPLOY_HOST"
+            exit 1
+          fi
 
       - name: Prepare directories on host
         env:
