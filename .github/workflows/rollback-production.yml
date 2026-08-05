@@ -1,0 +1,91 @@
+name: Rollback Production (ghcc.pinnacletechhub.com.ng)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: >
+          Release tag to roll back TO (e.g. 20260804-101530-abcdef).
+          Leave blank = roll back to the immediately previous release.
+        required: false
+        default: ''
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ghcc.pinnacletechhub.com.ng
+  RELEASES_ROOT: /home/ghcc/releases
+  CURRENT_LINK:  /home/ghcc/current
+  DOC_ROOT:      /home/ghcc/public_html
+
+jobs:
+  rollback:
+    name: Atomic rollback
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://ghcc.pinnacletechhub.com.ng
+    steps:
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key:     ${{ secrets.SSH_PRIVATE_KEY }}
+          name:    id_ed25519
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          if_key_exists: replace
+
+      - name: Resolve target release
+        id: target
+        env:
+          SSH_USER:    ${{ secrets.SSH_USER }}
+          WANTED:      ${{ github.event.inputs.release }}
+        run: |
+          if [ -n "$WANTED" ]; then
+            TAG="$WANTED"
+            # Verify the requested tag actually exists on the host
+            ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "[ -d '$RELEASES_ROOT/$TAG' ]" \
+              || { echo "::error::Requested release '$TAG' not found under $RELEASES_ROOT/ on host"; exit 1; }
+          else
+            # Pick the release immediately before the current one
+            TAG=$(ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+              set -euo pipefail
+              CURRENT_REAL=\$(readlink -f '$CURRENT_LINK' 2>/dev/null || echo '')
+              # ls -1t = newest-first; we want the first entry *not* equal to current target
+              ls -1t '$RELEASES_ROOT' | while read -r dir; do
+                if [ -z \"\$CURRENT_REAL\" ] || [ \"\$dir\" != \"\$(basename \"\$CURRENT_REAL\")\" ]; then
+                  echo \"\$dir\"
+                  break
+                fi
+              done
+            ")
+            [ -n "$TAG" ] || { echo "::error::No previous release to roll back to."; exit 1; }
+          fi
+          echo "target=$TAG" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Swap `current` symlink to target release (atomic)
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TAG:      ${{ steps.target.outputs.target }}
+        run: |
+          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            TARGET='$RELEASES_ROOT/$TAG'
+            [ -d \"\$TARGET\" ] || { echo 'Target release directory missing'; exit 1; }
+            ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
+            mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
+            ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
+            curl -fsSI -o /dev/null --max-time 20 'https://$DEPLOY_HOST/' \
+              && echo 'Rollback smoke check passed.' \
+              || (echo '::warning::Rollback smoke check did not return OK — investigate immediately.'; true)
+          "
+
+      - name: Summary
+        run: |
+          echo "## Rollback complete :rewind:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Rolled back to release: \`${{ steps.target.outputs.target }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live: https://$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+          echo ">" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Remember: if you also need to revert DB state, restore the most recent DB backup taken *before* the bad deploy." >> "$GITHUB_STEP_SUMMARY"
+          echo "> Schema changes in this project are designed to be additive/idempotent, but DDL is not reversible by this workflow." >> "$GITHUB_STEP_SUMMARY"

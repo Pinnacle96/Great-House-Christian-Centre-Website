@@ -1,0 +1,204 @@
+name: Deploy to Production (ghcc.pinnacletechhub.com.ng)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      release_keep_count:
+        description: 'Number of old releases to keep after deploy'
+        required: false
+        default: '5'
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: ghcc.pinnacletechhub.com.ng
+  RELEASES_ROOT: /home/ghcc/releases
+  SHARED_ROOT:   /home/ghcc/shared
+  CURRENT_LINK:  /home/ghcc/current
+  DOC_ROOT:      /home/ghcc/public_html
+
+jobs:
+  build:
+    name: Build artefact
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine release tag
+        id: release
+        run: |
+          TAG="$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse --short HEAD)"
+          echo "tag=$TAG" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Install PHP dependencies
+        uses: php-actions/composer@v6
+        with:
+          php_version: "8.2"
+          args: --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install npm dependencies & build CSS
+        run: |
+          npm ci
+          npm run build:css
+
+      - name: Sanitize build (remove dev tools & scripts)
+        run: |
+          rm -rf node_modules
+          rm -f .env.*
+          rm -f package.json package-lock.json
+          rm -f tailwind.config.js
+          rm -f composer.json composer.lock
+
+      - name: Remove setup / seed / one-off scripts from artifact
+        run: |
+          rm -f  add_slug_to_events.php check_events_table.php fix_password.php \
+                 seed_*.php setup_*.php update_password.php update_db.php \
+                 setup_multibranch_schema.php PRODUCTION_CHECKLIST.md README.md
+
+      - name: Ensure writable directories exist in release
+        run: |
+          mkdir -p logs
+          mkdir -p assets/uploads/sermons/audio
+          mkdir -p assets/logo
+
+      - name: Package release artefact
+        run: |
+          mkdir -p _release/${{ steps.release.outputs.tag }}
+          rsync -a \
+            --exclude='_release' \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.env' \
+            ./ _release/${{ steps.release.outputs.tag }}/
+          tar -C _release -czf ghcc-release-${{ steps.release.outputs.tag }}.tar.gz .
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcc-release-${{ steps.release.outputs.tag }}
+          path: ghcc-release-${{ steps.release.outputs.tag }}.tar.gz
+          retention-days: 30
+
+  deploy:
+    name: Deploy to ghcc.pinnacletechhub.com.ng
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://ghcc.pinnacletechhub.com.ng
+    steps:
+      - name: Download artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: ghcc-release-${{ needs.build.outputs.release_tag }}
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key:     ${{ secrets.SSH_PRIVATE_KEY }}
+          name:    id_ed25519
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          if_key_exists: replace
+
+      - name: Prepare directories on host
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TAG:      ${{ needs.build.outputs.release_tag }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            mkdir -p '$RELEASES_ROOT' '$SHARED_ROOT/logs' '$SHARED_ROOT/assets/uploads/sermons/audio' '$SHARED_ROOT/assets/logo'
+            touch '$SHARED_ROOT/.env'
+            chmod 600 '$SHARED_ROOT/.env'
+          "
+
+      - name: Upload release
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TAG:      ${{ needs.build.outputs.release_tag }}
+        run: |
+          scp -o BatchMode=yes "ghcc-release-${TAG}.tar.gz" "$SSH_USER@$DEPLOY_HOST:/tmp/ghcc-release-${TAG}.tar.gz"
+          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            mkdir -p '$RELEASES_ROOT/$TAG'
+            tar -xzf '/tmp/ghcc-release-${TAG}.tar.gz' -C '$RELEASES_ROOT/$TAG'
+            rm -f '/tmp/ghcc-release-${TAG}.tar.gz'
+          "
+
+      - name: Symlink shared storage into new release
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TAG:      ${{ needs.build.outputs.release_tag }}
+        run: |
+          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            R='$RELEASES_ROOT/$TAG'
+            rm -rf   \"\$R/.env\" \"\$R/logs\" \"\$R/assets/uploads\" \"\$R/assets/logo\"
+            ln -sfn  '$SHARED_ROOT/.env'           \"\$R/.env\"
+            ln -sfn  '$SHARED_ROOT/logs'           \"\$R/logs\"
+            ln -sfn  '$SHARED_ROOT/assets/uploads' \"\$R/assets/uploads\"
+            ln -sfn  '$SHARED_ROOT/assets/logo'    \"\$R/assets/logo\"
+            php -r \"require '\$R/config/config.php'; new App\Core\Database();\" \
+              && echo 'PHP + DB config loads OK'
+          "
+
+      - name: Run idempotent DB migrations (from NEW release)
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          TAG:      ${{ needs.build.outputs.release_tag }}
+        run: |
+          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            R='$RELEASES_ROOT/$TAG'
+            cd \"\$R\"
+            [ -f setup_multibranch_schema.php ] && php setup_multibranch_schema.php || true
+            [ -f update_db.php ]               && php update_db.php               || true
+            [ -f schema_production_settings.php ] && php schema_production_settings.php || true
+            echo 'DB migrations completed.'
+          "
+
+      - name: Atomic swap (current -> new release) + wire docroot
+        env:
+          SSH_USER:       ${{ secrets.SSH_USER }}
+          TAG:            ${{ needs.build.outputs.release_tag }}
+          KEEP:           ${{ github.event.inputs.release_keep_count || '5' }}
+        run: |
+          ssh -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
+            set -euo pipefail
+            TARGET='$RELEASES_ROOT/$TAG'
+            # Atomic symlink replace via mv
+            ln -sfn \"\$TARGET\" '$CURRENT_LINK.new'
+            mv -fT  '$CURRENT_LINK.new' '$CURRENT_LINK'
+            # Wire Hostinger docroot to the release via symlink (preserves docroot path)
+            ln -sfn '$CURRENT_LINK' '$DOC_ROOT'
+            # Warm OPcache / first-hit check
+            curl -fsSI -o /dev/null --max-time 20 'https://$DEPLOY_HOST/' \
+              && echo 'Site responded 200/30x after swap' \
+              || (echo '::warning::Post-deploy smoke check did not return OK — check live site.'; true)
+            # Retention: keep only the newest N releases (current + N-1 older)
+            cd '$RELEASES_ROOT'
+            ls -1t | tail -n +\$((KEEP+1)) | xargs -r -I{} rm -rf {}
+          "
+
+      - name: Summary
+        run: |
+          echo "## Deployment succeeded :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release tag: \`${{ needs.build.outputs.release_tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live: https://$DEPLOY_HOST" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Rollback via: \`gh workflow run rollback-production.yml -f release=<older-tag>\`" >> "$GITHUB_STEP_SUMMARY"

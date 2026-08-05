@@ -1,0 +1,7 @@
+{
+    "name": "ghcc/ghcc",
+    "require": {
+        "phpmailer/phpmailer": "^7.0",
+        "dompdf/dompdf": "^3.1"
+    }
+}
