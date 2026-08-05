@@ -174,6 +174,8 @@ jobs:
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes "$SSH_USER@$DEPLOY_HOST" "
             set -euo pipefail
             R='$RELEASES_ROOT/$TAG'
+            # Ensure parent directories exist in the release before symlinking.
+            mkdir -p \"\$R/logs\" \"\$R/assets\"
             rm -rf   \"\$R/.env\" \"\$R/logs\" \"\$R/assets/uploads\" \"\$R/assets/logo\"
             ln -sfn  '$SHARED_ROOT/.env'           \"\$R/.env\"
             ln -sfn  '$SHARED_ROOT/logs'           \"\$R/logs\"
