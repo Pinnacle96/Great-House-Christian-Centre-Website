@@ -37,10 +37,16 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          # Write key, stripping CR (Windows paste) and guaranteeing a trailing newline.
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          # Validate the key parses before we try to use it.
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 >/dev/null 2>&1; then
+            echo '::error::SSH_PRIVATE_KEY is not a valid OpenSSH key. Re-paste the FULL key including the BEGIN/END lines (no extra spaces, no CRLF).'
+            exit 1
+          fi
           if [ -n "$SSH_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           else
             echo "SSH_KNOWN_HOSTS secret not set — scanning host key on the runner."
             ssh-keyscan -p "$DEPLOY_PORT" -t ed25519,ecdsa-sha2-nistp256,rsa "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
