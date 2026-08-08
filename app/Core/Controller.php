@@ -66,6 +66,15 @@ class Controller {
         exit;
     }
 
+    protected function requireConfirmedAction($fallback = '/admin') {
+        if (($_POST['_confirmed_action'] ?? '') === '1') {
+            return;
+        }
+
+        $_SESSION['error'] = 'Please confirm this action before continuing.';
+        $this->redirectBack($fallback);
+    }
+
     protected function paginationParams($defaultPerPage = 15, array $allowedPerPage = [10, 15, 25, 50]) {
         $defaultPerPage = in_array((int)$defaultPerPage, $allowedPerPage, true) ? (int)$defaultPerPage : 15;
         $page = max(1, (int)($_GET['p'] ?? 1));

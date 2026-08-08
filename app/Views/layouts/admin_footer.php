@@ -154,7 +154,7 @@
                             if (/^(https?:|mailto:|tel:|\/|#)/i.test(value)) {
                                 child.setAttribute('href', value);
                                 child.setAttribute('rel', 'noopener');
-                                continue;
+                                return;
                             }
                         }
                         child.removeAttribute(attribute.name);
@@ -204,28 +204,31 @@
                 icon.innerHTML = danger ? '<i class="fas fa-triangle-exclamation"></i>' : '<i class="fas fa-circle-check"></i>';
             };
 
-            document.querySelectorAll('form[data-confirm]').forEach(form => {
-                form.addEventListener('submit', function(e) {
-                    if (form.dataset.confirmed === '1') {
-                        delete form.dataset.confirmed;
-                        return;
-                    }
+            document.addEventListener('submit', function(e) {
+                const form = e.target;
+                if (!(form instanceof HTMLFormElement) || !form.matches('form[data-confirm]')) {
+                    return;
+                }
 
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    pendingForm = form;
+                if (form.dataset.confirmed === '1') {
+                    delete form.dataset.confirmed;
+                    return;
+                }
 
-                    title.textContent = form.dataset.confirmTitle || 'Confirm action';
-                    message.textContent = form.dataset.confirm || 'Are you sure you want to continue?';
-                    proceed.textContent = form.dataset.confirmButton || 'Continue';
-                    applyVariant(form.dataset.confirmVariant || 'danger');
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                pendingForm = form;
 
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                    document.body.classList.add('overflow-hidden');
-                    proceed.focus();
-                });
-            });
+                title.textContent = form.dataset.confirmTitle || 'Confirm action';
+                message.textContent = form.dataset.confirm || 'Are you sure you want to continue?';
+                proceed.textContent = form.dataset.confirmButton || 'Continue';
+                applyVariant(form.dataset.confirmVariant || 'danger');
+
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.classList.add('overflow-hidden');
+                proceed.focus();
+            }, true);
 
             proceed.addEventListener('click', function() {
                 if (!pendingForm) {
@@ -234,9 +237,21 @@
                 }
 
                 const form = pendingForm;
+                let confirmedInput = form.querySelector('input[name="_confirmed_action"]');
+                if (!confirmedInput) {
+                    confirmedInput = document.createElement('input');
+                    confirmedInput.type = 'hidden';
+                    confirmedInput.name = '_confirmed_action';
+                    form.appendChild(confirmedInput);
+                }
+                confirmedInput.value = '1';
                 form.dataset.confirmed = '1';
                 closeModal();
-                form.requestSubmit();
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
             });
 
             modal.querySelectorAll('[data-confirm-cancel]').forEach(button => {

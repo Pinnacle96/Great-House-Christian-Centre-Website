@@ -244,6 +244,7 @@ class BranchController extends Controller {
         if (!BranchScope::isSuperAdmin()) {
             BranchScope::requireAccess($id);
         }
+        $this->requireConfirmedAction('/admin/branches');
 
         $stmt = $this->db->prepare("UPDATE branches SET registration_token = ? WHERE id = ?");
         $stmt->execute([bin2hex(random_bytes(16)), $id]);
@@ -256,6 +257,7 @@ class BranchController extends Controller {
         if (!BranchScope::isSuperAdmin()) {
             $this->redirect('/admin/branches');
         }
+        $this->requireConfirmedAction('/admin/branches');
 
         $branchModel = new Branch();
         $branch = $branchModel->find($id);
@@ -283,6 +285,7 @@ class BranchController extends Controller {
         if (!BranchScope::isSuperAdmin()) {
             $this->redirect('/admin/branches');
         }
+        $this->requireConfirmedAction('/admin/branches');
 
         $branchModel = new Branch();
         $branch = $branchModel->find($id);
