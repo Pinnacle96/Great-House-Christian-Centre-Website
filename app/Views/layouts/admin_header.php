@@ -181,7 +181,7 @@
         </aside>
 
         <!-- Mobile Sidebar -->
-        <aside id="mobileSidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-brand-green-900 to-brand-green-800 text-white transform -translate-x-full lg:translate-x-0 lg:hidden sidebar-transition">
+        <aside id="mobileSidebar" class="fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col overflow-hidden bg-gradient-to-b from-brand-green-900 to-brand-green-800 text-white transform -translate-x-full lg:translate-x-0 lg:hidden sidebar-transition">
             <div class="p-6 flex items-center justify-between border-b border-brand-green-700">
                 <div class="flex items-center space-x-3">
                     <div class="w-8 h-8 bg-brand-gold rounded-full flex items-center justify-center">
@@ -194,7 +194,7 @@
                 </button>
             </div>
             
-            <div class="flex-1 overflow-y-auto py-6">
+            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-6">
                 <nav class="px-4 space-y-1">
                     <a href="<?= APP_URL ?>/admin" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin') ?>" onclick="closeMobileMenu()">
                         <i class="fas fa-tachometer-alt w-5 h-5 mr-3"></i>

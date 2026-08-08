@@ -51,19 +51,33 @@
                 }
 
                 textarea.dataset.richtextReady = '1';
-                textarea.rows = Math.max(Number(textarea.rows || 0), 8);
-                textarea.classList.add('font-mono', 'text-sm', 'leading-relaxed');
+                textarea.classList.add('hidden');
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'rounded-lg border border-gray-300 bg-white shadow-sm focus-within:border-brand-green-500 focus-within:ring-2 focus-within:ring-brand-green-500/20';
 
                 const toolbar = document.createElement('div');
-                toolbar.className = 'mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2';
+                toolbar.className = 'flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 p-2';
 
                 const actions = [
-                    { label: 'Bold', icon: 'fa-bold', before: '<strong>', after: '</strong>' },
-                    { label: 'Italic', icon: 'fa-italic', before: '<em>', after: '</em>' },
-                    { label: 'Highlight', icon: 'fa-highlighter', before: '*', after: '*' },
-                    { label: 'Link', icon: 'fa-link', before: '<a href="">', after: '</a>' },
-                    { label: 'Line break', icon: 'fa-turn-down', before: '<br>', after: '' },
+                    { label: 'Bold', icon: 'fa-bold', command: 'bold' },
+                    { label: 'Italic', icon: 'fa-italic', command: 'italic' },
+                    { label: 'Underline', icon: 'fa-underline', command: 'underline' },
+                    { label: 'Bullet list', icon: 'fa-list-ul', command: 'insertUnorderedList' },
+                    { label: 'Numbered list', icon: 'fa-list-ol', command: 'insertOrderedList' },
+                    { label: 'Clear formatting', icon: 'fa-eraser', command: 'removeFormat' },
                 ];
+
+                const editor = document.createElement('div');
+                editor.className = 'min-h-[180px] w-full overflow-y-auto rounded-b-lg bg-white px-4 py-3 text-sm leading-7 text-gray-800 outline-none prose prose-sm max-w-none';
+                editor.contentEditable = 'true';
+                editor.innerHTML = normalizeEditorHtml(textarea.value);
+                editor.setAttribute('role', 'textbox');
+                editor.setAttribute('aria-multiline', 'true');
+
+                const sync = () => {
+                    textarea.value = sanitizeEditorHtml(editor.innerHTML);
+                };
 
                 actions.forEach(action => {
                     const button = document.createElement('button');
@@ -73,24 +87,91 @@
                     button.setAttribute('aria-label', action.label);
                     button.innerHTML = `<i class="fas ${action.icon} text-xs"></i>`;
                     button.addEventListener('click', () => {
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        const selected = textarea.value.substring(start, end);
-                        const replacement = action.before + selected + action.after;
-
-                        textarea.setRangeText(replacement, start, end, 'end');
-                        textarea.focus();
-
-                        if (selected === '' && action.after !== '') {
-                            const cursor = start + action.before.length;
-                            textarea.setSelectionRange(cursor, cursor);
-                        }
+                        editor.focus();
+                        document.execCommand(action.command, false, null);
+                        sync();
                     });
                     toolbar.appendChild(button);
                 });
 
-                textarea.parentNode.insertBefore(toolbar, textarea);
+                editor.addEventListener('input', sync);
+                editor.addEventListener('blur', sync);
+                editor.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+                    document.execCommand('insertText', false, text);
+                    sync();
+                });
+
+                const form = textarea.closest('form');
+                if (form) {
+                    form.addEventListener('submit', sync);
+                }
+
+                wrapper.appendChild(toolbar);
+                wrapper.appendChild(editor);
+                textarea.parentNode.insertBefore(wrapper, textarea);
+                sync();
             });
+        }
+
+        function normalizeEditorHtml(value) {
+            const raw = String(value || '').trim();
+            if (raw === '') {
+                return '';
+            }
+
+            if (/<[a-z][\s\S]*>/i.test(raw)) {
+                return sanitizeEditorHtml(raw);
+            }
+
+            return raw
+                .split(/\n{2,}/)
+                .map(part => `<p>${escapeHtml(part).replace(/\n/g, '<br>')}</p>`)
+                .join('');
+        }
+
+        function sanitizeEditorHtml(html) {
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            const allowedTags = new Set(['A', 'B', 'BR', 'DIV', 'EM', 'I', 'LI', 'OL', 'P', 'SPAN', 'STRONG', 'U', 'UL']);
+
+            const cleanNode = (node) => {
+                [...node.childNodes].forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        return;
+                    }
+
+                    if (child.nodeType !== Node.ELEMENT_NODE || !allowedTags.has(child.tagName)) {
+                        child.replaceWith(document.createTextNode(child.textContent || ''));
+                        return;
+                    }
+
+                    [...child.attributes].forEach(attribute => {
+                        const name = attribute.name.toLowerCase();
+                        if (child.tagName === 'A' && name === 'href') {
+                            const value = attribute.value.trim();
+                            if (/^(https?:|mailto:|tel:|\/|#)/i.test(value)) {
+                                child.setAttribute('href', value);
+                                child.setAttribute('rel', 'noopener');
+                                continue;
+                            }
+                        }
+                        child.removeAttribute(attribute.name);
+                    });
+
+                    cleanNode(child);
+                });
+            };
+
+            cleanNode(template.content);
+            return template.innerHTML.trim();
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value;
+            return div.innerHTML;
         }
 
         function initConfirmableForms() {
