@@ -2,6 +2,31 @@
         </div>
     </div>
 
+    <div id="confirmModal" class="fixed inset-0 z-[80] hidden items-center justify-center px-4 py-6" aria-labelledby="confirmModalTitle" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-gray-900/55 backdrop-blur-sm" data-confirm-cancel></div>
+        <div class="relative w-full max-w-md rounded-xl bg-white shadow-2xl ring-1 ring-black/5">
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div id="confirmModalIcon" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+                        <i class="fas fa-triangle-exclamation"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h3 id="confirmModalTitle" class="text-lg font-bold text-gray-900">Confirm action</h3>
+                        <p id="confirmModalMessage" class="mt-2 text-sm leading-6 text-gray-600">Are you sure you want to continue?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 sm:flex-row sm:justify-end">
+                <button type="button" data-confirm-cancel class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-green-500 focus:ring-offset-2">
+                    Cancel
+                </button>
+                <button type="button" id="confirmModalProceed" class="inline-flex justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                    Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         window.GHCC_CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
         document.addEventListener('DOMContentLoaded', function() {
@@ -14,7 +39,85 @@
                     form.appendChild(input);
                 }
             });
+
+            initConfirmableForms();
         });
+
+        function initConfirmableForms() {
+            const modal = document.getElementById('confirmModal');
+            const title = document.getElementById('confirmModalTitle');
+            const message = document.getElementById('confirmModalMessage');
+            const proceed = document.getElementById('confirmModalProceed');
+            const icon = document.getElementById('confirmModalIcon');
+            let pendingForm = null;
+
+            if (!modal || !title || !message || !proceed || !icon) {
+                return;
+            }
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.classList.remove('overflow-hidden');
+                pendingForm = null;
+            };
+
+            const applyVariant = (variant) => {
+                const danger = variant !== 'primary';
+                proceed.className = danger
+                    ? 'inline-flex justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2'
+                    : 'inline-flex justify-center rounded-lg bg-brand-green-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-brand-green-700 focus:outline-none focus:ring-2 focus:ring-brand-green-500 focus:ring-offset-2';
+                icon.className = danger
+                    ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600'
+                    : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-green-50 text-brand-green-700';
+                icon.innerHTML = danger ? '<i class="fas fa-triangle-exclamation"></i>' : '<i class="fas fa-circle-check"></i>';
+            };
+
+            document.querySelectorAll('form[data-confirm]').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (form.dataset.confirmed === '1') {
+                        delete form.dataset.confirmed;
+                        return;
+                    }
+
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    pendingForm = form;
+
+                    title.textContent = form.dataset.confirmTitle || 'Confirm action';
+                    message.textContent = form.dataset.confirm || 'Are you sure you want to continue?';
+                    proceed.textContent = form.dataset.confirmButton || 'Continue';
+                    applyVariant(form.dataset.confirmVariant || 'danger');
+
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    document.body.classList.add('overflow-hidden');
+                    proceed.focus();
+                });
+            });
+
+            proceed.addEventListener('click', function() {
+                if (!pendingForm) {
+                    closeModal();
+                    return;
+                }
+
+                const form = pendingForm;
+                form.dataset.confirmed = '1';
+                closeModal();
+                form.requestSubmit();
+            });
+
+            modal.querySelectorAll('[data-confirm-cancel]').forEach(button => {
+                button.addEventListener('click', closeModal);
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+        }
 
         // Mobile menu functionality
         function toggleMobileMenu() {

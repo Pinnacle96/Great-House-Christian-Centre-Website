@@ -201,7 +201,7 @@
                                                 </button>
                                             </form>
                                         <?php endif; ?>
-                                        <form action="<?= APP_URL ?>/admin/prayers/delete/<?= $prayer['id'] ?>" method="POST" class="inline" onsubmit="return confirm('Delete this prayer request?');">
+                                        <form action="<?= APP_URL ?>/admin/prayers/delete/<?= $prayer['id'] ?>" method="POST" class="inline" data-confirm-title="Delete prayer request" data-confirm="This prayer request will be permanently deleted." data-confirm-button="Delete request">
                                             <button type="submit" class="text-red-600 hover:text-red-900 transition-colors" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>

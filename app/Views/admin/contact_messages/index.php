@@ -97,7 +97,7 @@
                                                 </button>
                                             </form>
                                         <?php endif; ?>
-                                        <form action="<?= APP_URL ?>/admin/contact-messages/delete/<?= $message['id'] ?>" method="POST" onsubmit="return confirm('Delete this contact message?');">
+                                        <form action="<?= APP_URL ?>/admin/contact-messages/delete/<?= $message['id'] ?>" method="POST" data-confirm-title="Delete contact message" data-confirm="This contact message from <?= htmlspecialchars($message['name']) ?> will be permanently deleted." data-confirm-button="Delete message">
                                             <button type="submit" class="text-red-600 hover:text-red-900" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>

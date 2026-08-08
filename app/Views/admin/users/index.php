@@ -101,7 +101,7 @@
                                             <i class="fas fa-edit text-xs"></i>
                                         </a>
                                         <?php if ($user['id'] != $_SESSION['user_id']): ?>
-                                            <form action="<?= APP_URL ?>/admin/users/delete/<?= $user['id'] ?>" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?')">
+                                            <form action="<?= APP_URL ?>/admin/users/delete/<?= $user['id'] ?>" method="POST" data-confirm-title="Delete user" data-confirm="Delete <?= htmlspecialchars($user['name']) ?>? This user will no longer be able to sign in." data-confirm-button="Delete user">
                                                 <button type="submit" class="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors" title="Delete">
                                                     <i class="fas fa-trash text-xs"></i>
                                                 </button>

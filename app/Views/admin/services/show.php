@@ -160,7 +160,7 @@
                                                     </select>
                                                 </form>
 
-                                                <form action="<?= APP_URL ?>/admin/services/removeRoster" method="POST" onsubmit="return confirm('Remove from schedule?');">
+                                                <form action="<?= APP_URL ?>/admin/services/removeRoster" method="POST" data-confirm-title="Remove from schedule" data-confirm="Remove this person from the service schedule?" data-confirm-button="Remove">
                                                     <input type="hidden" name="roster_id" value="<?= $person['id'] ?>">
                                                     <input type="hidden" name="service_id" value="<?= $service['id'] ?>">
                                                     <button type="submit" class="text-gray-400 hover:text-red-600 p-1" title="Remove">

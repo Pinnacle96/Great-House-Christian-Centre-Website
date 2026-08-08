@@ -45,7 +45,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <a href="<?= APP_URL ?>/admin/team/edit/<?= $member['id'] ?>" class="text-brand-green-600 hover:text-brand-green-900 mr-4">Edit</a>
-                            <form action="<?= APP_URL ?>/admin/team/delete/<?= $member['id'] ?>" method="POST" class="inline" onsubmit="return confirm('Are you sure?');">
+                            <form action="<?= APP_URL ?>/admin/team/delete/<?= $member['id'] ?>" method="POST" class="inline" data-confirm-title="Delete team member" data-confirm="Delete <?= htmlspecialchars($member['name']) ?> from the leadership/team list?" data-confirm-button="Delete member">
                                 <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
                             </form>
                         </td>

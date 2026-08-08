@@ -165,7 +165,7 @@
                                                 <i class="fas fa-users"></i>
                                             </a>
                                         <?php endif; ?>
-                                        <form action="<?= APP_URL ?>/admin/events/delete/<?= $event['id'] ?>" method="POST" onsubmit="return confirm('Are you sure you want to delete this event?');" class="inline">
+                                        <form action="<?= APP_URL ?>/admin/events/delete/<?= $event['id'] ?>" method="POST" data-confirm-title="Delete event" data-confirm="Delete <?= htmlspecialchars($event['title']) ?>? This action cannot be undone." data-confirm-button="Delete event" class="inline">
                                             <button type="submit" class="text-red-600 hover:text-red-700 transition-colors" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>

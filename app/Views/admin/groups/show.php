@@ -160,7 +160,7 @@
                                         <?= $member['joined_at'] ? date('M d, Y', strtotime($member['joined_at'])) : '-' ?>
                                     </td>
                                     <td class="px-6 py-3 text-right">
-                                        <form action="<?= APP_URL ?>/admin/groups/removeMember" method="POST" onsubmit="return confirm('Remove this member from the group?');" class="inline-block">
+                                        <form action="<?= APP_URL ?>/admin/groups/removeMember" method="POST" data-confirm-title="Remove group member" data-confirm="Remove <?= htmlspecialchars($member['first_name'] . ' ' . $member['last_name']) ?> from this group?" data-confirm-button="Remove member" class="inline-block">
                                             <input type="hidden" name="group_id" value="<?= $group['id'] ?>">
                                             <input type="hidden" name="member_id" value="<?= $member['id'] ?>">
                                             <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors p-1" title="Remove Member">
