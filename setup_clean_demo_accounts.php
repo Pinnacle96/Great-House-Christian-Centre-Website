@@ -112,12 +112,30 @@ try {
 
     upsertDemoUser($db, 'Demo Superadmin', 'superadmin@ghccng.org', $passwordHash, $roles['superadmin']);
     upsertDemoUser($db, 'Ilesa Branch Admin', 'admin.ilesa@ghccng.org', $passwordHash, $roles['admin'], $ilesaId, '08114173016');
-    upsertDemoUser($db, 'Pastor Peter Okon', 'pastor.ilesa@ghccng.org', $passwordHash, $roles['pastor'], $ilesaId, '08114173016');
     upsertDemoUser($db, 'Ilesa Department Leader', 'leader.ilesa@ghccng.org', $passwordHash, $roles['leader'], $ilesaId, '08114173016');
     upsertDemoUser($db, 'Ilesa Member', 'member.ilesa@ghccng.org', $passwordHash, $roles['member'], $ilesaId, '08114173016');
     upsertDemoUser($db, 'Ilesa Registration Manager', 'registrations.ilesa@ghccng.org', $passwordHash, $roles['registration_manager'], $ilesaId, '08114173016');
     upsertDemoUser($db, 'Ilesa Check-in Team', 'checkin.ilesa@ghccng.org', $passwordHash, $roles['registration_team'], $ilesaId, '08114173016');
     upsertDemoMember($db, $ilesaId, 'member.ilesa@ghccng.org', '08114173016');
+
+    $branchPastors = [
+        'ghcc-ibadan' => ['Dr. Bibiloni Ademusi', 'pastor.ibadan@ghccng.org', '08169464676'],
+        'ghcc-ikeja' => ['Mr. Abraham', 'pastor.ikeja@ghccng.org', '08102338517'],
+        'ghcc-lekki' => ['Mrs. Adenike Ige', 'pastor.lekki@ghccng.org', '08148847777'],
+        'ghcc-ile-ife' => ['Pastor Mrs. Abiola Oriade', 'pastor.ileife@ghccng.org', '07031243988'],
+        'ghcc-osogbo' => ['Pastor Dayo Jubee', 'pastor.osogbo@ghccng.org', '09018621110'],
+        'ghcc-potters-assembly' => ['Pastor Favour', 'pastor.potters@ghccng.org', '07047713817'],
+        'ghcc-ilesa' => ['Pastor Peter Okon', 'pastor.ilesa@ghccng.org', '08114173016'],
+    ];
+
+    $updateBranchPastor = $db->prepare("UPDATE branches SET pastor_user_id = ? WHERE id = ?");
+    foreach ($branchPastors as $slug => [$name, $email, $phone]) {
+        $branchId = branchId($db, $slug);
+        if ($branchId) {
+            $pastorId = upsertDemoUser($db, $name, $email, $passwordHash, $roles['pastor'], $branchId, $phone);
+            $updateBranchPastor->execute([$pastorId, $branchId]);
+        }
+    }
 
     $branchAdmins = [
         'ghcc-ibadan' => ['Ibadan Branch Admin', 'admin.ibadan@ghccng.org'],
@@ -135,11 +153,6 @@ try {
         }
     }
 
-    $stmt = $db->prepare("UPDATE branches SET pastor_user_id = ? WHERE id = ?");
-    $pastorIdStmt = $db->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-    $pastorIdStmt->execute(['pastor.ilesa@ghccng.org']);
-    $stmt->execute([(int)$pastorIdStmt->fetchColumn(), $ilesaId]);
-
     $db->commit();
 
     echo "Clean demo accounts are ready.\n";
@@ -152,6 +165,7 @@ try {
     echo "member.ilesa@ghccng.org\n";
     echo "registrations.ilesa@ghccng.org\n";
     echo "checkin.ilesa@ghccng.org\n";
+    echo "Branch pastor samples: pastor.ibadan@ghccng.org, pastor.ikeja@ghccng.org, pastor.lekki@ghccng.org, pastor.ileife@ghccng.org, pastor.osogbo@ghccng.org, pastor.potters@ghccng.org, pastor.ilesa@ghccng.org\n";
     echo "Branch admin samples: admin.ibadan@ghccng.org, admin.ikeja@ghccng.org, admin.lekki@ghccng.org, admin.ileife@ghccng.org, admin.osogbo@ghccng.org, admin.potters@ghccng.org\n";
 } catch (Throwable $e) {
     if (isset($db) && $db->inTransaction()) {
