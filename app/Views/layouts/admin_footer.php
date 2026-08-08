@@ -41,7 +41,57 @@
             });
 
             initConfirmableForms();
+            initRichTextTextareas();
         });
+
+        function initRichTextTextareas() {
+            document.querySelectorAll('textarea.richtext-editor').forEach(textarea => {
+                if (textarea.dataset.richtextReady === '1') {
+                    return;
+                }
+
+                textarea.dataset.richtextReady = '1';
+                textarea.rows = Math.max(Number(textarea.rows || 0), 8);
+                textarea.classList.add('font-mono', 'text-sm', 'leading-relaxed');
+
+                const toolbar = document.createElement('div');
+                toolbar.className = 'mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2';
+
+                const actions = [
+                    { label: 'Bold', icon: 'fa-bold', before: '<strong>', after: '</strong>' },
+                    { label: 'Italic', icon: 'fa-italic', before: '<em>', after: '</em>' },
+                    { label: 'Highlight', icon: 'fa-highlighter', before: '*', after: '*' },
+                    { label: 'Link', icon: 'fa-link', before: '<a href="">', after: '</a>' },
+                    { label: 'Line break', icon: 'fa-turn-down', before: '<br>', after: '' },
+                ];
+
+                actions.forEach(action => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm hover:border-brand-green-300 hover:text-brand-green-700 focus:outline-none focus:ring-2 focus:ring-brand-green-500 focus:ring-offset-1';
+                    button.title = action.label;
+                    button.setAttribute('aria-label', action.label);
+                    button.innerHTML = `<i class="fas ${action.icon} text-xs"></i>`;
+                    button.addEventListener('click', () => {
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const selected = textarea.value.substring(start, end);
+                        const replacement = action.before + selected + action.after;
+
+                        textarea.setRangeText(replacement, start, end, 'end');
+                        textarea.focus();
+
+                        if (selected === '' && action.after !== '') {
+                            const cursor = start + action.before.length;
+                            textarea.setSelectionRange(cursor, cursor);
+                        }
+                    });
+                    toolbar.appendChild(button);
+                });
+
+                textarea.parentNode.insertBefore(toolbar, textarea);
+            });
+        }
 
         function initConfirmableForms() {
             const modal = document.getElementById('confirmModal');
