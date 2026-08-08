@@ -8,7 +8,27 @@
     <link rel="stylesheet" href="<?= APP_URL ?>/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>.sidebar-transition { transition: all 0.3s ease; }</style>
+    <style>
+        .sidebar-transition { transition: transform 0.3s ease; }
+        @media (max-width: 1023px) {
+            #mobileSidebar {
+                display: flex;
+                height: 100vh;
+                height: 100dvh;
+                transform: translateX(-100%);
+            }
+
+            #mobileSidebar.mobile-sidebar-open {
+                transform: translateX(0);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            #mobileSidebar {
+                display: none;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-50 font-sans antialiased">
     <!-- Mobile Menu Overlay -->
@@ -181,7 +201,7 @@
         </aside>
 
         <!-- Mobile Sidebar -->
-        <aside id="mobileSidebar" class="fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col overflow-hidden bg-gradient-to-b from-brand-green-900 to-brand-green-800 text-white transform -translate-x-full lg:translate-x-0 lg:hidden sidebar-transition">
+        <aside id="mobileSidebar" class="fixed inset-y-0 left-0 z-50 w-64 flex-col overflow-hidden bg-gradient-to-b from-brand-green-900 to-brand-green-800 text-white sidebar-transition">
             <div class="p-6 flex items-center justify-between border-b border-brand-green-700">
                 <div class="flex items-center space-x-3">
                     <div class="w-8 h-8 bg-brand-gold rounded-full flex items-center justify-center">

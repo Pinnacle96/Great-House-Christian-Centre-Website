@@ -254,9 +254,13 @@
         function toggleMobileMenu() {
             const mobileSidebar = document.getElementById('mobileSidebar');
             const mobileOverlay = document.getElementById('mobileOverlay');
-            
-            if (mobileSidebar.classList.contains('-translate-x-full')) {
-                mobileSidebar.classList.remove('-translate-x-full');
+
+            if (!mobileSidebar || !mobileOverlay) {
+                return;
+            }
+
+            if (!mobileSidebar.classList.contains('mobile-sidebar-open')) {
+                mobileSidebar.classList.add('mobile-sidebar-open');
                 mobileOverlay.classList.remove('hidden');
                 document.body.classList.add('overflow-hidden');
             } else {
@@ -267,14 +271,18 @@
         function closeMobileMenu() {
             const mobileSidebar = document.getElementById('mobileSidebar');
             const mobileOverlay = document.getElementById('mobileOverlay');
-            
-            mobileSidebar.classList.add('-translate-x-full');
+
+            if (!mobileSidebar || !mobileOverlay) {
+                return;
+            }
+
+            mobileSidebar.classList.remove('mobile-sidebar-open');
             mobileOverlay.classList.add('hidden');
             document.body.classList.remove('overflow-hidden');
         }
         
         // Close menu when clicking on overlay
-        document.getElementById('mobileOverlay').addEventListener('click', closeMobileMenu);
+        document.getElementById('mobileOverlay')?.addEventListener('click', closeMobileMenu);
         
         // Close menu when pressing Escape key
         document.addEventListener('keydown', function(e) {
