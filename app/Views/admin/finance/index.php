@@ -46,8 +46,7 @@
     <!-- Recent Transactions Table -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 class="font-bold text-gray-800">Recent Transactions</h3>
-            <a href="#" class="text-sm text-brand-green-600 hover:underline">View All History</a>
+            <h3 class="font-bold text-gray-800">Transactions</h3>
         </div>
         
         <div class="overflow-x-auto">
@@ -117,6 +116,7 @@
                 </tbody>
             </table>
         </div>
+        <?php require 'app/Views/partials/pagination.php'; ?>
     </div>
 </div>
 

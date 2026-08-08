@@ -14,11 +14,15 @@ class SermonController extends Controller {
 
     public function index() {
         $sermonModel = new Sermon();
-        $sermons = $sermonModel->findAll();
+        $pagination = $this->paginationParams(15);
+        $totalSermons = $sermonModel->countAll();
+        $pagination = $this->paginationMeta($totalSermons, $pagination, 'sermons');
+        $sermons = $sermonModel->findPaginated($pagination['per_page'], $pagination['offset']);
         
         $this->view('admin/sermons/index', [
             'title' => 'Sermon Management',
-            'sermons' => $sermons
+            'sermons' => $sermons,
+            'pagination' => $pagination
         ]);
     }
 

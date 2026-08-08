@@ -22,7 +22,23 @@ class ContactMessageController extends Controller {
             $params[] = $filter;
         }
         [$sql, $params] = BranchScope::appendWhere($sql, $params);
-        $sql .= " ORDER BY created_at DESC";
+
+        $countSql = "SELECT COUNT(*) FROM contact_messages";
+        $countParams = [];
+        if (in_array($filter, ['new', 'read', 'archived'], true)) {
+            $countSql .= " WHERE status = ?";
+            $countParams[] = $filter;
+        }
+        [$countSql, $countParams] = BranchScope::appendWhere($countSql, $countParams);
+        $stmt = $db->prepare($countSql);
+        $stmt->execute($countParams);
+
+        $pagination = $this->paginationParams(15);
+        $pagination = $this->paginationMeta((int)$stmt->fetchColumn(), $pagination, 'messages');
+
+        $limit = (int)$pagination['per_page'];
+        $offset = (int)$pagination['offset'];
+        $sql .= " ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
@@ -31,7 +47,8 @@ class ContactMessageController extends Controller {
         $this->view('admin/contact_messages/index', [
             'title' => 'Contact Messages',
             'messages' => $messages,
-            'filter' => $filter
+            'filter' => $filter,
+            'pagination' => $pagination
         ]);
     }
 

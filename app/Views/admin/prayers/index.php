@@ -40,7 +40,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total Requests</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= count($prayers) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($prayerStats['total'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -52,9 +52,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Prayed Over</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($prayers, function($carry, $prayer) {
-                        return $carry + ($prayer['status'] === 'prayed' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($prayerStats['prayed'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -66,9 +64,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">New</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($prayers, function($carry, $prayer) {
-                        return $carry + ($prayer['status'] === 'new' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($prayerStats['new_requests'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -80,9 +76,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Public Requests</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($prayers, function($carry, $prayer) {
-                        return $carry + ($prayer['is_public'] ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($prayerStats['public_requests'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -220,6 +214,7 @@
                 </tbody>
             </table>
         </div>
+        <?php require 'app/Views/partials/pagination.php'; ?>
     </div>
 </div>
 

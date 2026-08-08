@@ -22,7 +22,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total Events</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= count($events) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($eventStats['total'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -34,11 +34,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Upcoming Events</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($events, function($carry, $event) {
-                        $eventDate = new DateTime($event['start_datetime']);
-                        $now = new DateTime();
-                        return $carry + ($eventDate > $now ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($eventStats['upcoming'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -50,9 +46,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Require Registration</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($events, function($carry, $event) {
-                        return $carry + ($event['requires_registration'] ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($eventStats['requires_registration'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -64,7 +58,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total Registrations</p>
-                    <p class="text-2xl font-bold text-gray-800">0</p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($eventStats['registrations'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -182,8 +176,10 @@
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
-    </table>
+            </table>
+        </div>
+        <?php require 'app/Views/partials/pagination.php'; ?>
+    </div>
 </div>
 
 <?php require_once 'app/Views/layouts/admin_footer.php'; ?>
-

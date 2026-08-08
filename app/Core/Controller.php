@@ -47,6 +47,43 @@ class Controller {
         exit;
     }
 
+    protected function paginationParams($defaultPerPage = 15, array $allowedPerPage = [10, 15, 25, 50]) {
+        $defaultPerPage = in_array((int)$defaultPerPage, $allowedPerPage, true) ? (int)$defaultPerPage : 15;
+        $page = max(1, (int)($_GET['p'] ?? 1));
+        $perPage = (int)($_GET['per_page'] ?? $defaultPerPage);
+
+        if (!in_array($perPage, $allowedPerPage, true)) {
+            $perPage = $defaultPerPage;
+        }
+
+        return [
+            'page' => $page,
+            'per_page' => $perPage,
+            'offset' => ($page - 1) * $perPage,
+            'allowed_per_page' => $allowedPerPage,
+        ];
+    }
+
+    protected function paginationMeta($total, array $pagination, $label = 'records') {
+        $total = max(0, (int)$total);
+        $perPage = max(1, (int)($pagination['per_page'] ?? 15));
+        $totalPages = max(1, (int)ceil($total / $perPage));
+        $page = min(max(1, (int)($pagination['page'] ?? 1)), $totalPages);
+        $offset = ($page - 1) * $perPage;
+
+        return [
+            'page' => $page,
+            'per_page' => $perPage,
+            'offset' => $offset,
+            'total' => $total,
+            'total_pages' => $totalPages,
+            'from' => $total > 0 ? $offset + 1 : 0,
+            'to' => min($total, $offset + $perPage),
+            'label' => $label,
+            'allowed_per_page' => $pagination['allowed_per_page'] ?? [10, 15, 25, 50],
+        ];
+    }
+
     protected function storeImageUpload($file, $targetDir, $prefix = 'upload') {
         $extension = Security::isAllowedImageUpload($file);
         if (!$extension) {

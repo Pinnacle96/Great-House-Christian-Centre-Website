@@ -63,7 +63,16 @@ class RegistrationController extends Controller {
                 $sql .= " AND checked_in_at IS NOT NULL";
             }
 
-            $sql .= " ORDER BY created_at DESC";
+            $countSql = preg_replace('/^SELECT \* FROM registrations/i', 'SELECT COUNT(*) FROM registrations', $sql);
+            $stmt = $db->prepare($countSql);
+            $stmt->execute($params);
+
+            $pagination = $this->paginationParams(15);
+            $pagination = $this->paginationMeta((int)$stmt->fetchColumn(), $pagination, 'registrations');
+
+            $limit = (int)$pagination['per_page'];
+            $offset = (int)$pagination['offset'];
+            $sql .= " ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -85,6 +94,8 @@ class RegistrationController extends Controller {
             $stmtStats = $db->prepare($statsSql);
             $stmtStats->execute($statsParams);
             $stats = $stmtStats->fetch();
+        } else {
+            $pagination = $this->paginationMeta(0, $this->paginationParams(15), 'registrations');
         }
 
         $this->view('admin/registrations/index', [
@@ -92,7 +103,8 @@ class RegistrationController extends Controller {
             'selectedEventId' => $eventId,
             'registrations' => $registrations,
             'stats' => $stats,
-            'filter' => $filter
+            'filter' => $filter,
+            'pagination' => $pagination
         ]);
     }
 

@@ -22,7 +22,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total Groups</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= count($groups) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($groupStats['total'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -34,9 +34,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Ministry Teams</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($groups, function($carry, $g) {
-                        return $carry + ($g['type'] === 'Ministry Team' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($groupStats['ministry_teams'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -48,9 +46,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Small Groups</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($groups, function($carry, $g) {
-                        return $carry + ($g['type'] === 'Small Group' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($groupStats['small_groups'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -116,6 +112,9 @@
                     </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+        <div class="mt-6 overflow-hidden rounded-xl shadow-md">
+            <?php require 'app/Views/partials/pagination.php'; ?>
         </div>
     <?php endif; ?>
 </div>

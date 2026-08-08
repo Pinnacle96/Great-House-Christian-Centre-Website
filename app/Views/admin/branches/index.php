@@ -139,6 +139,9 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
             </div>
         <?php endforeach; ?>
     </div>
+    <div class="mt-6 overflow-hidden rounded-xl shadow-md">
+        <?php require 'app/Views/partials/pagination.php'; ?>
+    </div>
 </div>
 
 <script>

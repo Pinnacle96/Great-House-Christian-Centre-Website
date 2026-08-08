@@ -14,11 +14,17 @@ class EventController extends Controller {
 
     public function index() {
         $eventModel = new Event();
-        $events = $eventModel->findAll();
+        $pagination = $this->paginationParams(15);
+        $totalEvents = $eventModel->countAll();
+        $pagination = $this->paginationMeta($totalEvents, $pagination, 'events');
+        $events = $eventModel->findPaginated($pagination['per_page'], $pagination['offset']);
+        $eventStats = $eventModel->stats();
         
         $this->view('admin/events/index', [
             'title' => 'Event Management',
-            'events' => $events
+            'events' => $events,
+            'eventStats' => $eventStats,
+            'pagination' => $pagination
         ]);
     }
 

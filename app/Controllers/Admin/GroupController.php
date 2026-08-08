@@ -16,11 +16,17 @@ class GroupController extends Controller {
 
     public function index() {
         $groupModel = new Group();
-        $groups = $groupModel->findAllWithLeader();
+        $pagination = $this->paginationParams(15);
+        $totalGroups = $groupModel->countAll();
+        $pagination = $this->paginationMeta($totalGroups, $pagination, 'groups');
+        $groups = $groupModel->findAllWithLeaderPaginated($pagination['per_page'], $pagination['offset']);
+        $groupStats = $groupModel->stats();
         
         $this->view('admin/groups/index', [
             'title' => 'Small Groups & Ministries',
-            'groups' => $groups
+            'groups' => $groups,
+            'groupStats' => $groupStats,
+            'pagination' => $pagination
         ]);
     }
 
@@ -72,7 +78,10 @@ class GroupController extends Controller {
             $this->redirect('/admin/groups');
         }
 
-        $members = $groupModel->getMembers($id);
+        $memberStats = $groupModel->memberStats($id);
+        $pagination = $this->paginationParams(15);
+        $pagination = $this->paginationMeta($memberStats['total'], $pagination, 'group members');
+        $members = $groupModel->getMembersPaginated($id, $pagination['per_page'], $pagination['offset']);
         
         // For adding members dropdown
         $memberModel = new Member();
@@ -82,7 +91,9 @@ class GroupController extends Controller {
             'title' => $group['name'],
             'group' => $group,
             'members' => $members,
-            'allMembers' => $allMembers
+            'allMembers' => $allMembers,
+            'memberStats' => $memberStats,
+            'pagination' => $pagination
         ]);
     }
 

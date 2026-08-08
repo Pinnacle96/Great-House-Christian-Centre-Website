@@ -31,14 +31,23 @@ class Service extends Model {
         return $stmt->fetchAll();
     }
 
-    public function getPastServices($limit = 10) {
+    public function getPastServices($limit = 10, $offset = 0) {
         $limit = max(1, (int)$limit);
+        $offset = max(0, (int)$offset);
         $sql = "SELECT * FROM services WHERE service_date < CURDATE()";
         [$sql, $params] = BranchScope::appendWhere($sql);
-        $sql .= " ORDER BY service_date DESC LIMIT $limit";
+        $sql .= " ORDER BY service_date DESC LIMIT $limit OFFSET $offset";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    public function countPastServices() {
+        $sql = "SELECT COUNT(*) FROM services WHERE service_date < CURDATE()";
+        [$sql, $params] = BranchScope::appendWhere($sql);
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
     }
 
     public function getRoster($serviceId) {

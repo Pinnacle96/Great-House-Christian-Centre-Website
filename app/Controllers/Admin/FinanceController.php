@@ -16,7 +16,10 @@ class FinanceController extends Controller {
 
     public function index() {
         $donationModel = new Donation();
-        $transactions = $donationModel->findAllWithDetails(20);
+        $pagination = $this->paginationParams(15);
+        $totalTransactions = $donationModel->countAllWithDetails();
+        $pagination = $this->paginationMeta($totalTransactions, $pagination, 'transactions');
+        $transactions = $donationModel->findAllWithDetails($pagination['per_page'], $pagination['offset']);
         $recentTotal = $donationModel->getRecentTotal(30);
         $fundTotals = $donationModel->getTotalByFund();
         $monthlyStats = $donationModel->getMonthlyStats();
@@ -26,7 +29,8 @@ class FinanceController extends Controller {
             'transactions' => $transactions,
             'recentTotal' => $recentTotal,
             'fundTotals' => $fundTotals,
-            'monthlyStats' => $monthlyStats
+            'monthlyStats' => $monthlyStats,
+            'pagination' => $pagination
         ]);
     }
 

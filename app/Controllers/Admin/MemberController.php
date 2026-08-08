@@ -15,11 +15,17 @@ class MemberController extends Controller {
 
     public function index() {
         $memberModel = new Member();
-        $members = $memberModel->findAll();
+        $pagination = $this->paginationParams(15);
+        $totalMembers = $memberModel->countAll();
+        $pagination = $this->paginationMeta($totalMembers, $pagination, 'members');
+        $members = $memberModel->findPaginated($pagination['per_page'], $pagination['offset']);
+        $memberStats = $memberModel->membershipStats();
         
         $this->view('admin/members/index', [
             'title' => 'Member Management',
-            'members' => $members
+            'members' => $members,
+            'memberStats' => $memberStats,
+            'pagination' => $pagination
         ]);
     }
 

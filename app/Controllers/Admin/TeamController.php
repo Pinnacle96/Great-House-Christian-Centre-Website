@@ -14,12 +14,19 @@ class TeamController extends Controller {
 
     public function index() {
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->query("SELECT * FROM team_members ORDER BY display_order ASC");
+        $pagination = $this->paginationParams(15);
+        $totalMembers = (int)$db->query("SELECT COUNT(*) FROM team_members")->fetchColumn();
+        $pagination = $this->paginationMeta($totalMembers, $pagination, 'team members');
+
+        $limit = (int)$pagination['per_page'];
+        $offset = (int)$pagination['offset'];
+        $stmt = $db->query("SELECT * FROM team_members ORDER BY display_order ASC LIMIT $limit OFFSET $offset");
         $members = $stmt->fetchAll();
 
         $this->view('admin/team/index', [
             'title' => 'Manage Team Members',
-            'members' => $members
+            'members' => $members,
+            'pagination' => $pagination
         ]);
     }
 

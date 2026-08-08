@@ -19,6 +19,12 @@ class BranchController extends Controller {
 
     public function index() {
         if (BranchScope::isSuperAdmin()) {
+            $pagination = $this->paginationParams(10, [10, 20, 30, 50]);
+            $totalBranches = (int)$this->db->query("SELECT COUNT(*) FROM branches")->fetchColumn();
+            $pagination = $this->paginationMeta($totalBranches, $pagination, 'branches');
+            $limit = (int)$pagination['per_page'];
+            $offset = (int)$pagination['offset'];
+
             $stmt = $this->db->query("
                 SELECT b.*, u.name as pastor_name,
                     (SELECT COUNT(*) FROM members m WHERE m.branch_id = b.id AND m.status = 'active') as active_members,
@@ -26,9 +32,11 @@ class BranchController extends Controller {
                 FROM branches b
                 LEFT JOIN users u ON u.id = b.pastor_user_id
                 ORDER BY b.name ASC
+                LIMIT $limit OFFSET $offset
             ");
             $branches = $stmt->fetchAll();
         } else {
+            $pagination = $this->paginationMeta(1, $this->paginationParams(10, [10, 20, 30, 50]), 'branches');
             $branchId = BranchScope::currentBranchId();
             $stmt = $this->db->prepare("
                 SELECT b.*, u.name as pastor_name,
@@ -45,7 +53,8 @@ class BranchController extends Controller {
         $this->view('admin/branches/index', [
             'title' => 'Branches',
             'branches' => $branches,
-            'isSuperAdmin' => BranchScope::isSuperAdmin()
+            'isSuperAdmin' => BranchScope::isSuperAdmin(),
+            'pagination' => $pagination
         ]);
     }
 

@@ -12,11 +12,17 @@ class PrayerController extends Controller {
 
     public function index() {
         $prayerModel = new PrayerRequest();
-        $prayers = $prayerModel->findAll();
+        $pagination = $this->paginationParams(15);
+        $totalPrayers = $prayerModel->countAll();
+        $pagination = $this->paginationMeta($totalPrayers, $pagination, 'prayer requests');
+        $prayers = $prayerModel->findPaginated($pagination['per_page'], $pagination['offset']);
+        $prayerStats = $prayerModel->stats();
         
         $this->view('admin/prayers/index', [
             'title' => 'Prayer Requests',
-            'prayers' => $prayers
+            'prayers' => $prayers,
+            'prayerStats' => $prayerStats,
+            'pagination' => $pagination
         ]);
     }
 

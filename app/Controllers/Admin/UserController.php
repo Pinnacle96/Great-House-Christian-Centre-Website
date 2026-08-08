@@ -22,13 +22,20 @@ class UserController extends Controller {
         
         $conn = $this->db->getConnection();
         
-        // Get all users with their role names
+        $pagination = $this->paginationParams(15);
+        $totalUsers = (int)$conn->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $pagination = $this->paginationMeta($totalUsers, $pagination, 'users');
+
+        // Get users with their role names
+        $limit = (int)$pagination['per_page'];
+        $offset = (int)$pagination['offset'];
         $stmt = $conn->query("
             SELECT u.*, r.name as role_name, b.name as branch_name
             FROM users u
             JOIN roles r ON u.role_id = r.id
             LEFT JOIN branches b ON b.id = u.branch_id
             ORDER BY u.created_at DESC
+            LIMIT $limit OFFSET $offset
         ");
         $users = $stmt->fetchAll();
         
@@ -39,7 +46,8 @@ class UserController extends Controller {
         $this->view('admin/users/index', [
             'title' => 'User Management',
             'users' => $users,
-            'roles' => $roles
+            'roles' => $roles,
+            'pagination' => $pagination
         ]);
     }
 

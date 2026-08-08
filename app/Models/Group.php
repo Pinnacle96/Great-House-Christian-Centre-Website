@@ -49,8 +49,8 @@ class Group extends Model {
 
     public function findAllWithLeader() {
         $sql = "
-            SELECT g.*, u.name as leader_name 
-            FROM small_groups g 
+            SELECT g.*, u.name as leader_name
+            FROM small_groups g
             LEFT JOIN users u ON g.leader_id = u.id
         ";
         [$sql, $params] = BranchScope::appendWhere($sql, [], 'g');
@@ -58,6 +58,48 @@ class Group extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    public function findAllWithLeaderPaginated($limit, $offset) {
+        $limit = max(1, (int)$limit);
+        $offset = max(0, (int)$offset);
+        $sql = "
+            SELECT g.*, u.name as leader_name 
+            FROM small_groups g 
+            LEFT JOIN users u ON g.leader_id = u.id
+        ";
+        [$sql, $params] = BranchScope::appendWhere($sql, [], 'g');
+        $sql .= " ORDER BY g.name ASC LIMIT $limit OFFSET $offset";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function countAll() {
+        $sql = "SELECT COUNT(*) FROM small_groups g";
+        [$sql, $params] = BranchScope::appendWhere($sql, [], 'g');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function stats() {
+        $sql = "
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN type = 'Ministry Team' THEN 1 ELSE 0 END) as ministry_teams,
+                SUM(CASE WHEN type = 'Small Group' THEN 1 ELSE 0 END) as small_groups
+            FROM small_groups g
+        ";
+        [$sql, $params] = BranchScope::appendWhere($sql, [], 'g');
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $stats = $stmt->fetch() ?: [];
+        return [
+            'total' => (int)($stats['total'] ?? 0),
+            'ministry_teams' => (int)($stats['ministry_teams'] ?? 0),
+            'small_groups' => (int)($stats['small_groups'] ?? 0),
+        ];
     }
 
     public function findWithLeader($id) {
@@ -80,9 +122,9 @@ class Group extends Model {
 
     public function getMembers($groupId) {
         $sql = "
-            SELECT m.*, gm.role, gm.joined_at 
-            FROM members m 
-            JOIN group_members gm ON m.id = gm.member_id 
+            SELECT m.*, gm.role, gm.joined_at
+            FROM members m
+            JOIN group_members gm ON m.id = gm.member_id
             JOIN small_groups g ON g.id = gm.group_id
             WHERE gm.group_id = ?
         ";
@@ -96,6 +138,52 @@ class Group extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
+    }
+
+    public function getMembersPaginated($groupId, $limit, $offset) {
+        $limit = max(1, (int)$limit);
+        $offset = max(0, (int)$offset);
+        $sql = "
+            SELECT m.*, gm.role, gm.joined_at 
+            FROM members m 
+            JOIN group_members gm ON m.id = gm.member_id 
+            JOIN small_groups g ON g.id = gm.group_id
+            WHERE gm.group_id = ?
+        ";
+        $params = [$groupId];
+        [$where, $branchParams] = BranchScope::where('g');
+        if ($where !== '') {
+            $sql .= " AND $where";
+            $params = array_merge($params, $branchParams);
+        }
+        $sql .= " ORDER BY gm.role DESC, m.last_name ASC LIMIT $limit OFFSET $offset";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function memberStats($groupId) {
+        $sql = "
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN gm.role = 'leader' THEN 1 ELSE 0 END) as leaders
+            FROM group_members gm
+            JOIN small_groups g ON g.id = gm.group_id
+            WHERE gm.group_id = ?
+        ";
+        $params = [$groupId];
+        [$where, $branchParams] = BranchScope::where('g');
+        if ($where !== '') {
+            $sql .= " AND $where";
+            $params = array_merge($params, $branchParams);
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $stats = $stmt->fetch() ?: [];
+        return [
+            'total' => (int)($stats['total'] ?? 0),
+            'leaders' => (int)($stats['leaders'] ?? 0),
+        ];
     }
 
     public function addMember($groupId, $memberId, $role = 'member') {

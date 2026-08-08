@@ -110,6 +110,7 @@
                 </tbody>
             </table>
         </div>
+        <?php require 'app/Views/partials/pagination.php'; ?>
     </div>
 </div>
 

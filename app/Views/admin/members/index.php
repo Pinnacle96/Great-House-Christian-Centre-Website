@@ -22,7 +22,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total People</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= count($members) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($memberStats['total'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -34,9 +34,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Members</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($members, function($carry, $member) {
-                        return $carry + ($member['membership_type'] === 'Member' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($memberStats['members'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -48,9 +46,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Regular Attenders</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($members, function($carry, $member) {
-                        return $carry + ($member['membership_type'] === 'Regular Attender' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($memberStats['regular_attenders'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -62,9 +58,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Guests</p>
-                    <p class="text-2xl font-bold text-gray-800"><?= array_reduce($members, function($carry, $member) {
-                        return $carry + ($member['membership_type'] === 'Guest' ? 1 : 0);
-                    }, 0) ?></p>
+                    <p class="text-2xl font-bold text-gray-800"><?= (int)($memberStats['guests'] ?? 0) ?></p>
                 </div>
             </div>
         </div>
@@ -168,6 +162,7 @@
                 </tbody>
             </table>
         </div>
+        <?php require 'app/Views/partials/pagination.php'; ?>
     </div>
 </div>
 

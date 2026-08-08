@@ -66,11 +66,11 @@
                 <h3 class="font-bold text-indigo-900 mb-4">Membership Stats</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="bg-white p-3 rounded-lg shadow-sm">
-                        <span class="block text-2xl font-bold text-indigo-600"><?= count($members) ?></span>
+                        <span class="block text-2xl font-bold text-indigo-600"><?= (int)($memberStats['total'] ?? 0) ?></span>
                         <span class="text-xs text-gray-500 uppercase">Total Members</span>
                     </div>
                     <div class="bg-white p-3 rounded-lg shadow-sm">
-                        <span class="block text-2xl font-bold text-green-600"><?= array_reduce($members, function($c, $m) { return $c + ($m['role'] === 'leader' ? 1 : 0); }, 0) ?></span>
+                        <span class="block text-2xl font-bold text-green-600"><?= (int)($memberStats['leaders'] ?? 0) ?></span>
                         <span class="text-xs text-gray-500 uppercase">Leaders</span>
                     </div>
                 </div>
@@ -172,6 +172,7 @@
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <?php require 'app/Views/partials/pagination.php'; ?>
                 <?php endif; ?>
             </div>
         </div>

@@ -20,6 +20,55 @@ class Member extends Model {
         return $stmt->fetchAll();
     }
 
+    public function findPaginated($limit, $offset) {
+        $limit = max(1, (int)$limit);
+        $offset = max(0, (int)$offset);
+        [$where, $params] = BranchScope::where();
+        $sql = "SELECT * FROM members";
+        if ($where !== '') {
+            $sql .= " WHERE $where";
+        }
+        $sql .= " ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function countAll() {
+        [$where, $params] = BranchScope::where();
+        $sql = "SELECT COUNT(*) FROM members";
+        if ($where !== '') {
+            $sql .= " WHERE $where";
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
+    public function membershipStats() {
+        [$where, $params] = BranchScope::where();
+        $sql = "
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN membership_type = 'Member' THEN 1 ELSE 0 END) as members,
+                SUM(CASE WHEN membership_type = 'Regular Attender' THEN 1 ELSE 0 END) as regular_attenders,
+                SUM(CASE WHEN membership_type = 'Guest' THEN 1 ELSE 0 END) as guests
+            FROM members
+        ";
+        if ($where !== '') {
+            $sql .= " WHERE $where";
+        }
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $stats = $stmt->fetch() ?: [];
+        return [
+            'total' => (int)($stats['total'] ?? 0),
+            'members' => (int)($stats['members'] ?? 0),
+            'regular_attenders' => (int)($stats['regular_attenders'] ?? 0),
+            'guests' => (int)($stats['guests'] ?? 0),
+        ];
+    }
+
     public function find($id) {
         $sql = "SELECT * FROM members WHERE id = ?";
         $params = [$id];

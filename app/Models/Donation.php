@@ -32,6 +32,18 @@ class Donation extends Model {
         return $stmt->fetchAll();
     }
 
+    public function countAllWithDetails() {
+        [$where, $params] = BranchScope::where('d');
+        $branchSql = $where !== '' ? "WHERE $where" : "";
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM donations d
+            $branchSql
+        ");
+        $stmt->execute($params);
+        return (int)$stmt->fetchColumn();
+    }
+
     public function getTotalByFund() {
         [$where, $params] = BranchScope::where('d');
         $branchSql = $where !== '' ? "AND $where" : "";

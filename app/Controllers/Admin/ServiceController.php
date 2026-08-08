@@ -16,12 +16,16 @@ class ServiceController extends Controller {
     public function index() {
         $serviceModel = new Service();
         $upcomingServices = $serviceModel->getUpcomingServices();
-        $pastServices = $serviceModel->getPastServices();
+        $pagination = $this->paginationParams(15);
+        $totalPastServices = $serviceModel->countPastServices();
+        $pagination = $this->paginationMeta($totalPastServices, $pagination, 'past services');
+        $pastServices = $serviceModel->getPastServices($pagination['per_page'], $pagination['offset']);
 
         $this->view('admin/services/index', [
             'title' => 'Service Planning',
             'upcomingServices' => $upcomingServices,
-            'pastServices' => $pastServices
+            'pastServices' => $pastServices,
+            'pagination' => $pagination
         ]);
     }
 

@@ -96,6 +96,7 @@
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php require 'app/Views/partials/pagination.php'; ?>
         </div>
     </div>
 </div>
