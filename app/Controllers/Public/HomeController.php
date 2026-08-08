@@ -194,9 +194,11 @@ class HomeController extends Controller {
 
     public function contact() {
         $content = \App\Models\PageContent::getPageContent('contact');
+        $headquarters = (new Branch())->headquarters();
         $this->view('public/contact', [
             'title' => 'Contact Us',
-            'content' => $content
+            'content' => $content,
+            'headquarters' => $headquarters
         ]);
     }
 }

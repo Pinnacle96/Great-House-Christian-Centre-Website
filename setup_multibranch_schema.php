@@ -164,7 +164,7 @@ try {
         if ($index === 0) {
             $stmt = $db->prepare("
                 UPDATE branches
-                SET name = ?, slug = ?, pastor_name = ?, phone = ?, address = ?, is_active = 1, is_headquarters = 1
+                SET name = ?, slug = ?, pastor_name = ?, phone = ?, address = ?, is_active = 1
                 WHERE id = ?
             ");
             $stmt->execute([$name, $slug, $pastorName, $phone, $address, $hqId]);
@@ -193,10 +193,29 @@ try {
     $stmt = $db->query("SELECT id FROM branches WHERE is_headquarters = 1 AND is_active = 1 ORDER BY id ASC LIMIT 1");
     $headquartersId = $stmt->fetchColumn();
     if (!$headquartersId) {
-        $headquartersId = $hqId;
+        $stmt = $db->query("SELECT id FROM branches WHERE slug = 'ghcc-ilesa' AND is_active = 1 LIMIT 1");
+        $headquartersId = $stmt->fetchColumn() ?: $hqId;
     }
     $stmt = $db->prepare("UPDATE branches SET is_headquarters = CASE WHEN id = ? THEN 1 ELSE 0 END");
     $stmt->execute([$headquartersId]);
+
+    if ((int)$headquartersId !== (int)$hqId) {
+        foreach (['events', 'sermons'] as $publicTable) {
+            if (!tableExists($db, $publicTable) || !columnExists($db, $publicTable, 'branch_id')) {
+                continue;
+            }
+
+            $stmt = $db->prepare("SELECT COUNT(*) FROM `$publicTable` WHERE branch_id = ?");
+            $stmt->execute([$headquartersId]);
+            $headquartersRows = (int)$stmt->fetchColumn();
+
+            if ($headquartersRows === 0) {
+                $stmt = $db->prepare("UPDATE `$publicTable` SET branch_id = ? WHERE branch_id = ?");
+                $stmt->execute([$headquartersId, $hqId]);
+                echo "Moved legacy $publicTable records to headquarters branch.\n";
+            }
+        }
+    }
 
     if (tableExists($db, 'users') && columnExists($db, 'users', 'branch_id')) {
         $stmt = $db->prepare("UPDATE users SET branch_id = NULL WHERE role_id = 1");
@@ -209,7 +228,8 @@ try {
     }
 
     echo "Multibranch schema is ready.\n";
-    echo "Default branch ID: $hqId\n";
+    echo "Legacy default branch ID: $hqId\n";
+    echo "Headquarters branch ID: $headquartersId\n";
 } catch (Throwable $e) {
     echo "Error: " . $e->getMessage() . "\n";
     exit(1);

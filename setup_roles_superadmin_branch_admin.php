@@ -32,6 +32,9 @@ try {
     ");
     $stmt->execute();
 
+    $stmt = $db->prepare("UPDATE users SET name = 'System Superadmin' WHERE email = 'admin@ghcc.org' AND role_id = 1");
+    $stmt->execute();
+
     $stmt = $db->prepare("SELECT id FROM roles WHERE name = ? LIMIT 1");
     $stmt->execute(['Admin']);
     $adminId = $stmt->fetchColumn();

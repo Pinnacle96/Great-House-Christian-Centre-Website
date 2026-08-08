@@ -1,6 +1,26 @@
 <?php 
 require_once 'app/Views/layouts/header.php'; 
 use App\Models\Setting;
+
+$contactBranch = $headquarters ?? [];
+$contactValue = function ($contentKey, $settingKey, $branchKey, $fallback) use ($content, $contactBranch) {
+    $branchValue = trim((string)($contactBranch[$branchKey] ?? ''));
+    if ($branchValue !== '') {
+        return $branchValue;
+    }
+
+    $contentValue = trim((string)($content['contact_details'][$contentKey]['value'] ?? ''));
+    if ($contentValue !== '') {
+        return $contentValue;
+    }
+
+    $settingValue = trim((string)Setting::get($settingKey, ''));
+    return $settingValue !== '' ? $settingValue : $fallback;
+};
+
+$contactAddress = $contactValue('address', 'address', 'address', 'The Fulfilment Place, 7 Raimi Omole Street, Imo, Ilesa, Osun State');
+$contactPhone = $contactValue('phone', 'contact_phone', 'phone', '0811 417 3016');
+$contactEmail = $contactValue('email', 'contact_email', 'email', 'info@ghccng.org');
 ?>
 
 <?php if (!empty($_SESSION['success']) || !empty($_SESSION['error'])): ?>
@@ -87,7 +107,7 @@ use App\Models\Setting;
                         </div>
                         <div>
                             <h3 class="font-bold text-2xl text-gray-900 mb-2 group-hover:text-brand-green transition-colors"><?= $content['contact_details']['location_title']['value'] ?? 'Our Location' ?></h3>
-                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= $content['contact_details']['address']['value'] ?? '123 Faith Street, Grace City, GC 10001' ?></p>
+                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= htmlspecialchars($contactAddress) ?></p>
                         </div>
                     </div>
 
@@ -103,7 +123,7 @@ use App\Models\Setting;
                         </div>
                         <div>
                             <h3 class="font-bold text-2xl text-gray-900 mb-2 group-hover:text-brand-green transition-colors"><?= $content['contact_details']['phone_title']['value'] ?? 'Phone Number' ?></h3>
-                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= $content['contact_details']['phone']['value'] ?? '+123 456 7890' ?></p>
+                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= htmlspecialchars($contactPhone) ?></p>
                         </div>
                     </div>
 
@@ -113,7 +133,7 @@ use App\Models\Setting;
                         </div>
                         <div>
                             <h3 class="font-bold text-2xl text-gray-900 mb-2 group-hover:text-brand-green transition-colors"><?= $content['contact_details']['email_title']['value'] ?? 'Email Address' ?></h3>
-                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= $content['contact_details']['email']['value'] ?? 'info@ghcc.org' ?></p>
+                            <p class="text-xl text-gray-500 font-light leading-relaxed"><?= htmlspecialchars($contactEmail) ?></p>
                         </div>
                     </div>
                 </div>

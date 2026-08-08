@@ -1,9 +1,32 @@
 <?php
+use App\Models\Branch;
 use App\Models\PageContent;
+use App\Models\Setting;
+
+$headquarters = (new Branch())->headquarters() ?: [];
 $footerContact = PageContent::getPageContent('contact');
-$f_address = $footerContact['contact_details']['address']['value'] ?? '123 Faith Street, Grace City';
-$f_phone = $footerContact['contact_details']['phone']['value'] ?? '+123 456 7890';
-$f_email = $footerContact['contact_details']['email']['value'] ?? 'info@ghcc.org';
+$footerValue = function ($contentKey, $settingKey, $branchKey, $fallback) use ($footerContact, $headquarters) {
+    $branchValue = trim((string)($headquarters[$branchKey] ?? ''));
+    if ($branchValue !== '') {
+        return $branchValue;
+    }
+
+    $contentValue = trim((string)($footerContact['contact_details'][$contentKey]['value'] ?? ''));
+    if ($contentValue !== '') {
+        return $contentValue;
+    }
+
+    $settingValue = trim((string)Setting::get($settingKey, ''));
+    if ($settingValue !== '') {
+        return $settingValue;
+    }
+
+    return $fallback;
+};
+
+$f_address = $footerValue('address', 'address', 'address', 'The Fulfilment Place, 7 Raimi Omole Street, Imo, Ilesa, Osun State');
+$f_phone = $footerValue('phone', 'contact_phone', 'phone', '0811 417 3016');
+$f_email = $footerValue('email', 'contact_email', 'email', 'info@ghccng.org');
 ?>
     </main>
     <footer class="bg-brand-green text-white relative overflow-hidden">
@@ -91,7 +114,7 @@ $f_email = $footerContact['contact_details']['email']['value'] ?? 'info@ghcc.org
                             </div>
                             <div>
                                 <span class="block text-xs font-bold text-brand-gold uppercase tracking-widest mb-1">Our Location</span>
-                                <span class="text-gray-200 text-lg"><?= $f_address ?></span>
+                                <span class="text-gray-200 text-lg"><?= htmlspecialchars($f_address) ?></span>
                             </div>
                         </li>
                         <li class="flex items-start gap-5 group">
@@ -102,7 +125,7 @@ $f_email = $footerContact['contact_details']['email']['value'] ?? 'info@ghcc.org
                             </div>
                             <div>
                                 <span class="block text-xs font-bold text-brand-gold uppercase tracking-widest mb-1">Call Us</span>
-                                <span class="text-gray-200 text-lg"><?= $f_phone ?></span>
+                                <span class="text-gray-200 text-lg"><?= htmlspecialchars($f_phone) ?></span>
                             </div>
                         </li>
                     </ul>

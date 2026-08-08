@@ -26,10 +26,11 @@
                             <option value="">Not assigned</option>
                             <?php foreach ($pastors as $pastor): ?>
                                 <option value="<?= $pastor['id'] ?>" <?= (int)($branch['pastor_user_id'] ?? 0) === (int)$pastor['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($pastor['name'] . ' - ' . $pastor['email']) ?>
+                                    <?= htmlspecialchars($pastor['name'] . ' - ' . ($pastor['branch_name'] ?? 'Unassigned') . ' - ' . $pastor['email']) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="mt-1 text-xs text-gray-500">Only users with the Pastor role appear here.</p>
                     </div>
                 <?php endif; ?>
                 <div>

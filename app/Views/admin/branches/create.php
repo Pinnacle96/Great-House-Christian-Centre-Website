@@ -31,9 +31,12 @@
                     <select name="pastor_user_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent">
                         <option value="">Not assigned</option>
                         <?php foreach ($pastors as $pastor): ?>
-                            <option value="<?= $pastor['id'] ?>"><?= htmlspecialchars($pastor['name'] . ' - ' . $pastor['email']) ?></option>
+                            <option value="<?= $pastor['id'] ?>">
+                                <?= htmlspecialchars($pastor['name'] . ' - ' . ($pastor['branch_name'] ?? 'Unassigned') . ' - ' . $pastor['email']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="mt-1 text-xs text-gray-500">Only users with the Pastor role appear here.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pastor / Contact Name</label>

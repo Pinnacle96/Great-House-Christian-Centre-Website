@@ -272,10 +272,11 @@ class BranchController extends Controller {
 
     private function branchAssignablePastors() {
         $stmt = $this->db->query("
-            SELECT id, name, email 
-            FROM users 
-            WHERE role_id IN (2, 3, 5, 6, 7)
-            ORDER BY name ASC
+            SELECT u.id, u.name, u.email, b.name as branch_name
+            FROM users u
+            LEFT JOIN branches b ON b.id = u.branch_id
+            WHERE u.role_id = 2
+            ORDER BY COALESCE(b.name, 'Unassigned'), u.name ASC
         ");
         return $stmt->fetchAll();
     }
