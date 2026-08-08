@@ -126,6 +126,14 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
                                 </button>
                             </form>
                         <?php endif; ?>
+
+                        <?php if ($isSuperAdmin && empty($branch['is_headquarters'])): ?>
+                            <form action="<?= APP_URL ?>/admin/branches/delete/<?= $branch['id'] ?>" method="POST" onsubmit="return confirm('Delete this branch? Branches with existing records will be deactivated instead of permanently deleted.')">
+                                <button type="submit" class="text-sm font-bold text-red-600 hover:text-red-700">
+                                    <?= !empty($branch['is_active']) ? 'Delete / deactivate branch' : 'Delete branch' ?>
+                                </button>
+                            </form>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

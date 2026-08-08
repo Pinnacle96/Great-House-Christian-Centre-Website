@@ -270,6 +270,43 @@ class BranchController extends Controller {
         $this->redirect('/admin/branches');
     }
 
+    public function delete($id) {
+        if (!BranchScope::isSuperAdmin()) {
+            $this->redirect('/admin/branches');
+        }
+
+        $branchModel = new Branch();
+        $branch = $branchModel->find($id);
+        if (!$branch) {
+            $_SESSION['error'] = 'Branch not found.';
+            $this->redirect('/admin/branches');
+        }
+
+        if (!empty($branch['is_headquarters'])) {
+            $_SESSION['error'] = 'The headquarters branch cannot be deleted. Make another branch headquarters first.';
+            $this->redirect('/admin/branches');
+        }
+
+        if (!empty($branch['is_active']) && $this->activeBranchCount() <= 1) {
+            $_SESSION['error'] = 'You must keep at least one active branch.';
+            $this->redirect('/admin/branches');
+        }
+
+        $usageCount = $this->branchUsageCount((int)$id);
+        if ($usageCount > 0) {
+            $stmt = $this->db->prepare("UPDATE branches SET is_active = 0 WHERE id = ?");
+            $stmt->execute([(int)$id]);
+            $_SESSION['success'] = $branch['name'] . ' has existing records, so it was deactivated instead of permanently deleted.';
+            $this->redirect('/admin/branches');
+        }
+
+        $stmt = $this->db->prepare("DELETE FROM branches WHERE id = ?");
+        $stmt->execute([(int)$id]);
+
+        $_SESSION['success'] = $branch['name'] . ' was permanently deleted.';
+        $this->redirect('/admin/branches');
+    }
+
     private function branchAssignablePastors() {
         $stmt = $this->db->query("
             SELECT u.id, u.name, u.email, b.name as branch_name
@@ -279,6 +316,56 @@ class BranchController extends Controller {
             ORDER BY COALESCE(b.name, 'Unassigned'), u.name ASC
         ");
         return $stmt->fetchAll();
+    }
+
+    private function activeBranchCount() {
+        $stmt = $this->db->query("SELECT COUNT(*) FROM branches WHERE is_active = 1");
+        return (int)$stmt->fetchColumn();
+    }
+
+    private function branchUsageCount($branchId) {
+        $tables = [
+            'users',
+            'members',
+            'families',
+            'events',
+            'registrations',
+            'event_registrations',
+            'donations',
+            'prayer_requests',
+            'small_groups',
+            'attendance',
+            'communications',
+            'communication_logs',
+            'contact_messages',
+            'sermons',
+            'services',
+        ];
+
+        $count = 0;
+        foreach ($tables as $table) {
+            if (!$this->tableHasBranchId($table)) {
+                continue;
+            }
+
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM `$table` WHERE branch_id = ?");
+            $stmt->execute([$branchId]);
+            $count += (int)$stmt->fetchColumn();
+        }
+
+        return $count;
+    }
+
+    private function tableHasBranchId($table) {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+                AND COLUMN_NAME = 'branch_id'
+        ");
+        $stmt->execute([$table]);
+        return (int)$stmt->fetchColumn() > 0;
     }
 
     private function uniqueSlug($name) {

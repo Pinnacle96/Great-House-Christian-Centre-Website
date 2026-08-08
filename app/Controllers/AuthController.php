@@ -33,6 +33,20 @@ class AuthController extends Controller {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password'])) {
+            $branchName = 'All Branches';
+            if ((int)$user['role_id'] !== 1 && !empty($user['branch_id'])) {
+                $stmtBranch = $db->prepare("SELECT name, is_active FROM branches WHERE id = :id LIMIT 1");
+                $stmtBranch->execute(['id' => $user['branch_id']]);
+                $branch = $stmtBranch->fetch();
+
+                if (!$branch || empty($branch['is_active'])) {
+                    $this->view('auth/login', ['error' => 'This branch account is inactive. Please contact the system administrator.', 'title' => 'Login']);
+                    return;
+                }
+
+                $branchName = $branch['name'];
+            }
+
             session_regenerate_id(true);
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
@@ -45,13 +59,7 @@ class AuthController extends Controller {
             $role = $stmtRole->fetch();
             $_SESSION['role_name'] = $role ? $role['name'] : 'Member';
 
-            $_SESSION['branch_name'] = 'All Branches';
-            if (!empty($user['branch_id'])) {
-                $stmtBranch = $db->prepare("SELECT name FROM branches WHERE id = :id");
-                $stmtBranch->execute(['id' => $user['branch_id']]);
-                $branch = $stmtBranch->fetch();
-                $_SESSION['branch_name'] = $branch ? $branch['name'] : 'Assigned Branch';
-            }
+            $_SESSION['branch_name'] = $branchName;
 
             $this->redirect((int)$user['role_id'] === 4 ? '/member' : '/admin');
         } else {

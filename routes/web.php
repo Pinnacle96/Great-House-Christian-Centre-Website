@@ -73,6 +73,7 @@ $router->get('/admin/branches/edit/(\d+)', [BranchController::class, 'edit']);
 $router->post('/admin/branches/update/(\d+)', [BranchController::class, 'update']);
 $router->post('/admin/branches/regenerate-token/(\d+)', [BranchController::class, 'regenerateToken']);
 $router->post('/admin/branches/make-headquarters/(\d+)', [BranchController::class, 'makeHeadquarters']);
+$router->post('/admin/branches/delete/(\d+)', [BranchController::class, 'delete']);
 $router->post('/admin/branches/test-paystack/(\d+)', [BranchController::class, 'testPaystack']);
 $router->post('/admin/branches/test-email/(\d+)', [BranchController::class, 'testEmail']);
 
