@@ -21,6 +21,7 @@
 
     <div class="bg-white rounded-xl shadow-md p-6">
         <form action="<?= APP_URL ?>/admin/branches/store" method="POST" class="space-y-6">
+            <?= \App\Core\Security::csrfField() ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Branch Name *</label>

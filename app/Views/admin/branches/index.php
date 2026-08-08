@@ -114,6 +114,7 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
                         </div>
 
                         <form action="<?= APP_URL ?>/admin/branches/regenerate-token/<?= $branch['id'] ?>" method="POST" data-confirm-title="Regenerate registration link" data-confirm="The old QR code and registration link for <?= htmlspecialchars($branch['name']) ?> will stop working immediately." data-confirm-button="Regenerate link">
+                            <?= \App\Core\Security::csrfField() ?>
                             <button type="submit" class="text-sm font-bold text-red-600 hover:text-red-700">
                                 Regenerate registration link
                             </button>
@@ -121,6 +122,7 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
 
                         <?php if ($isSuperAdmin && empty($branch['is_headquarters']) && !empty($branch['is_active'])): ?>
                             <form action="<?= APP_URL ?>/admin/branches/make-headquarters/<?= $branch['id'] ?>" method="POST" data-confirm-title="Make headquarters" data-confirm="<?= htmlspecialchars($branch['name']) ?> will become the headquarters branch. Global giving and default public submissions will use this branch." data-confirm-button="Make headquarters" data-confirm-variant="primary">
+                                <?= \App\Core\Security::csrfField() ?>
                                 <button type="submit" class="text-sm font-bold text-brand-green hover:text-brand-green-dark">
                                     Make headquarters
                                 </button>
@@ -129,6 +131,7 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
 
                         <?php if ($isSuperAdmin && empty($branch['is_headquarters'])): ?>
                             <form action="<?= APP_URL ?>/admin/branches/delete/<?= $branch['id'] ?>" method="POST" data-confirm-title="Delete or deactivate branch" data-confirm="Branches with existing records will be deactivated instead of permanently deleted. Continue with <?= htmlspecialchars($branch['name']) ?>?" data-confirm-button="<?= !empty($branch['is_active']) ? 'Delete / deactivate' : 'Delete branch' ?>">
+                                <?= \App\Core\Security::csrfField() ?>
                                 <button type="submit" class="text-sm font-bold text-red-600 hover:text-red-700">
                                     <?= !empty($branch['is_active']) ? 'Delete / deactivate branch' : 'Delete branch' ?>
                                 </button>

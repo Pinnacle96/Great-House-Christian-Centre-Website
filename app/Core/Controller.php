@@ -13,10 +13,29 @@ class Controller {
         
         // Check if view file exists
         if (file_exists('app/Views/' . $view . '.php')) {
-            require_once 'app/Views/' . $view . '.php';
+            ob_start();
+            require 'app/Views/' . $view . '.php';
+            echo $this->injectCsrfFields(ob_get_clean());
         } else {
             die("View does not exist: " . $view);
         }
+    }
+
+    private function injectCsrfFields($html) {
+        if (stripos($html, '<form') === false || stripos($html, 'method=') === false) {
+            return $html;
+        }
+
+        $field = Security::csrfField();
+
+        return preg_replace_callback('/<form\b(?=[^>]*\bmethod\s*=\s*["\']?post["\']?)[^>]*>.*?<\/form>/is', function ($matches) use ($field) {
+            $form = $matches[0];
+            if (preg_match('/name\s*=\s*["\']_csrf_token["\']/i', $form)) {
+                return $form;
+            }
+
+            return preg_replace('/(<form\b[^>]*>)/i', '$1' . $field, $form, 1);
+        }, $html);
     }
 
     public function redirect($url, $absolute = false) {
