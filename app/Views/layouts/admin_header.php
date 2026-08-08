@@ -21,6 +21,16 @@
             #mobileSidebar.mobile-sidebar-open {
                 transform: translateX(0);
             }
+
+            #mobileOverlay {
+                display: none;
+                pointer-events: none;
+            }
+
+            #mobileOverlay.mobile-overlay-open {
+                display: block;
+                pointer-events: auto;
+            }
         }
 
         @media (min-width: 1024px) {
@@ -30,6 +40,18 @@
         }
     </style>
     <script>
+        function adminAddClass(element, className) {
+            if (element && element.className.indexOf(className) === -1) {
+                element.className = (element.className + ' ' + className).trim();
+            }
+        }
+
+        function adminRemoveClass(element, className) {
+            if (element) {
+                element.className = element.className.replace(new RegExp('(^|\\s)' + className + '(?=\\s|$)', 'g'), ' ').trim();
+            }
+        }
+
         window.toggleMobileMenu = function() {
             var mobileSidebar = document.getElementById('mobileSidebar');
             var mobileOverlay = document.getElementById('mobileOverlay');
@@ -39,9 +61,11 @@
             }
 
             if (mobileSidebar.className.indexOf('mobile-sidebar-open') === -1) {
-                mobileSidebar.className += ' mobile-sidebar-open';
-                mobileOverlay.className = mobileOverlay.className.replace(/\bhidden\b/g, '').trim();
-                document.body.className += document.body.className.indexOf('overflow-hidden') === -1 ? ' overflow-hidden' : '';
+                adminAddClass(mobileSidebar, 'mobile-sidebar-open');
+                adminRemoveClass(mobileOverlay, 'hidden');
+                adminAddClass(mobileOverlay, 'mobile-overlay-open');
+                mobileOverlay.style.display = 'block';
+                adminAddClass(document.body, 'overflow-hidden');
             } else {
                 window.closeMobileMenu();
             }
@@ -55,11 +79,11 @@
                 return;
             }
 
-            mobileSidebar.className = mobileSidebar.className.replace(/\bmobile-sidebar-open\b/g, '').trim();
-            if (mobileOverlay.className.indexOf('hidden') === -1) {
-                mobileOverlay.className += ' hidden';
-            }
-            document.body.className = document.body.className.replace(/\boverflow-hidden\b/g, '').trim();
+            adminRemoveClass(mobileSidebar, 'mobile-sidebar-open');
+            adminRemoveClass(mobileOverlay, 'mobile-overlay-open');
+            adminAddClass(mobileOverlay, 'hidden');
+            mobileOverlay.style.display = 'none';
+            adminRemoveClass(document.body, 'overflow-hidden');
         };
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -81,7 +105,7 @@
 </head>
 <body class="bg-gray-50 font-sans antialiased">
     <!-- Mobile Menu Overlay -->
-    <div id="mobileOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+    <div id="mobileOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" style="display: none;"></div>
     
     <div class="flex h-screen overflow-hidden">
         <!-- Desktop Sidebar -->
@@ -342,6 +366,31 @@
                     <a href="<?= APP_URL ?>/admin/team" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin/team') ?>" onclick="closeMobileMenu()">
                         <i class="fas fa-user-tie w-5 h-5 mr-3"></i>
                         <span class="font-medium">Team Members</span>
+                    </a>
+
+                    <a href="<?= APP_URL ?>/admin/page-content?page=services" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= isset($_GET['page']) && $_GET['page'] === 'services' ? 'bg-brand-green-600 text-white' : 'text-brand-green-100 hover:bg-brand-green-700' ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-hand-holding-heart w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Services Page</span>
+                    </a>
+
+                    <a href="<?= APP_URL ?>/admin/page-content?page=sermons" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= isset($_GET['page']) && $_GET['page'] === 'sermons' ? 'bg-brand-green-600 text-white' : 'text-brand-green-100 hover:bg-brand-green-700' ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-microphone w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Sermons Page</span>
+                    </a>
+
+                    <a href="<?= APP_URL ?>/admin/page-content?page=events" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= isset($_GET['page']) && $_GET['page'] === 'events' ? 'bg-brand-green-600 text-white' : 'text-brand-green-100 hover:bg-brand-green-700' ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-calendar-day w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Events Page</span>
+                    </a>
+
+                    <a href="<?= APP_URL ?>/admin/page-content?page=give" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= isset($_GET['page']) && $_GET['page'] === 'give' ? 'bg-brand-green-600 text-white' : 'text-brand-green-100 hover:bg-brand-green-700' ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-heart w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Give Page</span>
+                    </a>
+
+                    <a href="<?= APP_URL ?>/admin/page-content?page=contact" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= isset($_GET['page']) && $_GET['page'] === 'contact' ? 'bg-brand-green-600 text-white' : 'text-brand-green-100 hover:bg-brand-green-700' ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-address-book w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Contact Page</span>
                     </a>
                     <?php endif; ?>
                     <?php endif; ?>
