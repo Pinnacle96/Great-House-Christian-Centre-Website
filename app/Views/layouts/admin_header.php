@@ -142,6 +142,13 @@
                         <span class="font-medium">Branches</span>
                     </a>
                     <?php endif; ?>
+
+                    <?php if (in_array($_SESSION['role_id'], [2, 7])): ?>
+                    <a href="<?= APP_URL ?>/admin/branch-settings" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin/branch-settings') ?>">
+                        <i class="fas fa-sliders w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Branch Settings</span>
+                    </a>
+                    <?php endif; ?>
                     
                     <?php if (in_array($_SESSION['role_id'], [1, 2, 3, 7])): ?>
                     <a href="<?= APP_URL ?>/admin/members" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin/members') ?>">
@@ -298,6 +305,13 @@
                     <a href="<?= APP_URL ?>/admin/branches" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin/branches') ?>" onclick="closeMobileMenu()">
                         <i class="fas fa-code-branch w-5 h-5 mr-3"></i>
                         <span class="font-medium">Branches</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (in_array($_SESSION['role_id'], [2, 7])): ?>
+                    <a href="<?= APP_URL ?>/admin/branch-settings" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 <?= $isActive('/admin/branch-settings') ?>" onclick="closeMobileMenu()">
+                        <i class="fas fa-sliders w-5 h-5 mr-3"></i>
+                        <span class="font-medium">Branch Settings</span>
                     </a>
                     <?php endif; ?>
                     

@@ -103,7 +103,7 @@ class CommunicationController extends Controller {
             } elseif ($channel === 'sms') {
                 $contactDetail = $recipient['phone'];
                 if ($contactDetail) {
-                    if ($commService->sendSMS($contactDetail, $message)) {
+                    if ($commService->sendSMS($contactDetail, $message, $logBranchId)) {
                         $status = 'sent';
                         $successCount++;
                     }

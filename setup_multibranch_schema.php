@@ -140,7 +140,10 @@ try {
         'smtp_encryption' => "VARCHAR(10) NULL AFTER smtp_port",
         'smtp_user' => 'VARCHAR(255) NULL AFTER smtp_encryption',
         'smtp_pass' => 'TEXT NULL AFTER smtp_user',
-        'bank_name' => 'VARCHAR(150) NULL AFTER smtp_pass',
+        'sms_provider' => 'VARCHAR(50) NULL AFTER smtp_pass',
+        'sms_sender_id' => 'VARCHAR(50) NULL AFTER sms_provider',
+        'sms_api_key' => 'TEXT NULL AFTER sms_sender_id',
+        'bank_name' => 'VARCHAR(150) NULL AFTER sms_api_key',
         'bank_account_name' => 'VARCHAR(150) NULL AFTER bank_name',
         'bank_account_number' => 'VARCHAR(50) NULL AFTER bank_account_name',
     ];

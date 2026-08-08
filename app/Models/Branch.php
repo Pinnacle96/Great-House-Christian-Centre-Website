@@ -81,4 +81,17 @@ class Branch extends Model {
             'from_name' => $branch['name'] ?? '',
         ];
     }
+
+    public function smsConfig($branchId) {
+        $branch = $this->find($branchId);
+        if (!$branch) {
+            return [];
+        }
+
+        return [
+            'provider' => $branch['sms_provider'] ?? '',
+            'sender_id' => $branch['sms_sender_id'] ?? '',
+            'api_key' => Setting::decryptValue($branch['sms_api_key'] ?? ''),
+        ];
+    }
 }

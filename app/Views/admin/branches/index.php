@@ -111,6 +111,10 @@ require_once 'app/Views/layouts/admin_header.php'; ?>
                             <span class="<?= !empty($branch['smtp_pass']) ? 'text-green-700' : 'text-gray-500' ?>">
                                 SMTP <?= !empty($branch['smtp_pass']) ? 'configured' : 'not configured' ?>
                             </span>
+                            <span class="text-gray-300">/</span>
+                            <span class="<?= !empty($branch['sms_api_key']) ? 'text-green-700' : 'text-gray-500' ?>">
+                                SMS <?= !empty($branch['sms_api_key']) ? 'configured' : 'not configured' ?>
+                            </span>
                         </div>
 
                         <form action="<?= APP_URL ?>/admin/branches/regenerate-token/<?= $branch['id'] ?>" method="POST" data-confirm-title="Regenerate registration link" data-confirm="The old QR code and registration link for <?= htmlspecialchars($branch['name']) ?> will stop working immediately." data-confirm-button="Regenerate link">

@@ -76,6 +76,12 @@ $router->post('/admin/branches/make-headquarters/(\d+)', [BranchController::clas
 $router->post('/admin/branches/delete/(\d+)', [BranchController::class, 'delete']);
 $router->post('/admin/branches/test-paystack/(\d+)', [BranchController::class, 'testPaystack']);
 $router->post('/admin/branches/test-email/(\d+)', [BranchController::class, 'testEmail']);
+$router->post('/admin/branches/test-sms/(\d+)', [BranchController::class, 'testSms']);
+$router->get('/admin/branch-settings', [BranchController::class, 'settings']);
+$router->post('/admin/branch-settings/update', [BranchController::class, 'updateSettings']);
+$router->post('/admin/branch-settings/test-paystack', [BranchController::class, 'testBranchPaystack']);
+$router->post('/admin/branch-settings/test-email', [BranchController::class, 'testBranchEmail']);
+$router->post('/admin/branch-settings/test-sms', [BranchController::class, 'testBranchSms']);
 
 // Admin - Registrations
 $router->get('/admin/registrations', [RegistrationController::class, 'index']);

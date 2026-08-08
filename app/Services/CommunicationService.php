@@ -66,11 +66,58 @@ class CommunicationService {
         }
     }
 
-    public function sendSMS($to, $message) {
-        // Placeholder for SMS logic (Twilio/Termii/Vonage)
-        // Ensure phone number format is correct (e.g., E.164)
-        // Simulate success
-        $this->log("SMS TO: $to | MSG: $message");
+    public function sendSMS($to, $message, $branchId = null) {
+        $provider = '';
+        $senderId = '';
+        $apiKey = '';
+
+        if ($branchId) {
+            $branchModel = new Branch();
+            $config = $branchModel->smsConfig($branchId);
+            $provider = $config['provider'] ?? '';
+            $senderId = $config['sender_id'] ?? '';
+            $apiKey = $config['api_key'] ?? '';
+        }
+
+        if ($provider !== 'termii' || $senderId === '' || $apiKey === '') {
+            $this->log("SMS CONFIG ERROR: SMS settings are incomplete for branch " . ($branchId ?: 'global') . ".");
+            return false;
+        }
+
+        if (!function_exists('curl_init')) {
+            $this->log("SMS ERROR: cURL is not available on this server.");
+            return false;
+        }
+
+        $payload = json_encode([
+            'api_key' => $apiKey,
+            'to' => $to,
+            'from' => $senderId,
+            'sms' => $message,
+            'type' => 'plain',
+            'channel' => 'generic',
+        ]);
+
+        $ch = curl_init('https://api.ng.termii.com/api/sms/send');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_TIMEOUT => 20,
+        ]);
+
+        $response = curl_exec($ch);
+        $error = curl_error($ch);
+        $statusCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($response === false || $statusCode < 200 || $statusCode >= 300) {
+            $this->log("SMS ERROR: HTTP $statusCode | $error | TO: $to | RESPONSE: " . substr((string)$response, 0, 500));
+            return false;
+        }
+
+        $this->log("SMS SENT TO: $to | PROVIDER: termii");
         return true;
     }
 

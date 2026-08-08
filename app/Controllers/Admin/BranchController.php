@@ -88,9 +88,10 @@ class BranchController extends Controller {
             INSERT INTO branches (
                 name, slug, registration_token, address, phone, email, pastor_name, pastor_user_id, is_active,
                 paystack_public_key, paystack_secret_key, smtp_host, smtp_port, smtp_encryption, smtp_user, smtp_pass,
+                sms_provider, sms_sender_id, sms_api_key,
                 bank_name, bank_account_name, bank_account_number
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $name,
@@ -109,6 +110,9 @@ class BranchController extends Controller {
             in_array($_POST['smtp_encryption'] ?? '', ['tls', 'ssl'], true) ? $_POST['smtp_encryption'] : null,
             trim($_POST['smtp_user'] ?? ''),
             Setting::encryptValue(trim($_POST['smtp_pass'] ?? '')),
+            in_array($_POST['sms_provider'] ?? '', ['termii'], true) ? $_POST['sms_provider'] : '',
+            trim($_POST['sms_sender_id'] ?? ''),
+            Setting::encryptValue(trim($_POST['sms_api_key'] ?? '')),
             trim($_POST['bank_name'] ?? ''),
             trim($_POST['bank_account_name'] ?? ''),
             trim($_POST['bank_account_number'] ?? '')
@@ -144,6 +148,116 @@ class BranchController extends Controller {
         ]);
     }
 
+    public function settings() {
+        $branch = $this->currentUserBranch();
+
+        $this->view('admin/branches/settings', [
+            'title' => 'Branch Settings',
+            'branch' => $branch,
+        ]);
+    }
+
+    public function updateSettings() {
+        $branch = $this->currentUserBranch();
+        $branchModel = new Branch();
+
+        $data = [
+            'phone' => trim($_POST['phone'] ?? ''),
+            'email' => trim($_POST['email'] ?? ''),
+            'paystack_public_key' => trim($_POST['paystack_public_key'] ?? ''),
+            'smtp_host' => trim($_POST['smtp_host'] ?? ''),
+            'smtp_port' => !empty($_POST['smtp_port']) ? max(1, min(65535, (int)$_POST['smtp_port'])) : null,
+            'smtp_encryption' => in_array($_POST['smtp_encryption'] ?? '', ['tls', 'ssl'], true) ? $_POST['smtp_encryption'] : null,
+            'smtp_user' => trim($_POST['smtp_user'] ?? ''),
+            'sms_provider' => in_array($_POST['sms_provider'] ?? '', ['termii'], true) ? $_POST['sms_provider'] : '',
+            'sms_sender_id' => trim($_POST['sms_sender_id'] ?? ''),
+            'bank_name' => trim($_POST['bank_name'] ?? ''),
+            'bank_account_name' => trim($_POST['bank_account_name'] ?? ''),
+            'bank_account_number' => trim($_POST['bank_account_number'] ?? ''),
+        ];
+
+        if ($data['email'] !== '' && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['error'] = 'Please enter a valid branch email address.';
+            $this->redirect('/admin/branch-settings');
+        }
+
+        if (trim($_POST['paystack_secret_key'] ?? '') !== '') {
+            $data['paystack_secret_key'] = Setting::encryptValue(trim($_POST['paystack_secret_key']));
+        }
+
+        if (trim($_POST['smtp_pass'] ?? '') !== '') {
+            $data['smtp_pass'] = Setting::encryptValue(trim($_POST['smtp_pass']));
+        }
+
+        if (trim($_POST['sms_api_key'] ?? '') !== '') {
+            $data['sms_api_key'] = Setting::encryptValue(trim($_POST['sms_api_key']));
+        }
+
+        $branchModel->update((int)$branch['id'], $data);
+
+        $_SESSION['success'] = 'Branch settings updated successfully.';
+        $this->redirect('/admin/branch-settings');
+    }
+
+    public function testBranchPaystack() {
+        $branch = $this->currentUserBranch();
+
+        $branchModel = new Branch();
+        $config = $branchModel->paymentConfig((int)$branch['id']);
+        $service = new PaystackService($config['secret_key'] ?? '');
+        $result = $service->testConnection();
+
+        $_SESSION[($result && !empty($result->status)) ? 'success' : 'error'] =
+            ($result && !empty($result->status))
+                ? 'Branch Paystack connection verified successfully.'
+                : 'Branch Paystack test failed: ' . ($result->message ?? 'Unknown error');
+
+        $this->redirect('/admin/branch-settings');
+    }
+
+    public function testBranchEmail() {
+        $branch = $this->currentUserBranch();
+
+        $to = $branch['email'] ?? '';
+        if (!$to || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['error'] = 'Set a valid branch email before testing SMTP.';
+            $this->redirect('/admin/branch-settings');
+        }
+
+        $service = new CommunicationService();
+        $sent = $service->sendEmail(
+            $to,
+            'GHCC Branch SMTP Test',
+            '<p>This is a test email from your GHCC branch configuration.</p>',
+            (int)$branch['id']
+        );
+
+        $_SESSION[$sent ? 'success' : 'error'] = $sent
+            ? 'Branch SMTP test email sent successfully.'
+            : 'Branch SMTP test failed. Check branch SMTP host, port, username, password, encryption, and logs.';
+
+        $this->redirect('/admin/branch-settings');
+    }
+
+    public function testBranchSms() {
+        $branch = $this->currentUserBranch();
+
+        $phone = trim($branch['phone'] ?? '');
+        if ($phone === '') {
+            $_SESSION['error'] = 'Set a branch phone number before testing SMS.';
+            $this->redirect('/admin/branch-settings');
+        }
+
+        $service = new CommunicationService();
+        $sent = $service->sendSMS($phone, 'GHCC branch SMS test from ' . ($branch['name'] ?? 'your branch') . '.', (int)$branch['id']);
+
+        $_SESSION[$sent ? 'success' : 'error'] = $sent
+            ? 'Branch SMS test sent successfully.'
+            : 'Branch SMS test failed. Check branch SMS provider, sender ID, API key, and logs.';
+
+        $this->redirect('/admin/branch-settings');
+    }
+
     public function update($id) {
         if (!BranchScope::isSuperAdmin()) {
             BranchScope::requireAccess($id);
@@ -166,6 +280,8 @@ class BranchController extends Controller {
             'smtp_port' => !empty($_POST['smtp_port']) ? (int)$_POST['smtp_port'] : null,
             'smtp_encryption' => in_array($_POST['smtp_encryption'] ?? '', ['tls', 'ssl'], true) ? $_POST['smtp_encryption'] : null,
             'smtp_user' => trim($_POST['smtp_user'] ?? ''),
+            'sms_provider' => in_array($_POST['sms_provider'] ?? '', ['termii'], true) ? $_POST['sms_provider'] : '',
+            'sms_sender_id' => trim($_POST['sms_sender_id'] ?? ''),
             'bank_name' => trim($_POST['bank_name'] ?? ''),
             'bank_account_name' => trim($_POST['bank_account_name'] ?? ''),
             'bank_account_number' => trim($_POST['bank_account_number'] ?? ''),
@@ -177,6 +293,10 @@ class BranchController extends Controller {
 
         if (trim($_POST['smtp_pass'] ?? '') !== '') {
             $data['smtp_pass'] = Setting::encryptValue(trim($_POST['smtp_pass']));
+        }
+
+        if (trim($_POST['sms_api_key'] ?? '') !== '') {
+            $data['sms_api_key'] = Setting::encryptValue(trim($_POST['sms_api_key']));
         }
 
         if (BranchScope::isSuperAdmin()) {
@@ -236,6 +356,33 @@ class BranchController extends Controller {
         $_SESSION[$sent ? 'success' : 'error'] = $sent
             ? 'Branch SMTP test email sent successfully.'
             : 'Branch SMTP test failed. Check branch SMTP host, port, username, password, encryption, and logs.';
+
+        $this->redirect('/admin/branches/edit/' . $id);
+    }
+
+    public function testSms($id) {
+        if (!BranchScope::isSuperAdmin()) {
+            BranchScope::requireAccess($id);
+        }
+
+        $branchModel = new Branch();
+        $branch = $branchModel->find($id);
+        if (!$branch) {
+            $this->redirect('/admin/branches');
+        }
+
+        $phone = trim($branch['phone'] ?? '');
+        if ($phone === '') {
+            $_SESSION['error'] = 'Set a branch phone number before testing SMS.';
+            $this->redirect('/admin/branches/edit/' . $id);
+        }
+
+        $service = new CommunicationService();
+        $sent = $service->sendSMS($phone, 'GHCC branch SMS test from ' . ($branch['name'] ?? 'this branch') . '.', (int)$id);
+
+        $_SESSION[$sent ? 'success' : 'error'] = $sent
+            ? 'Branch SMS test sent successfully.'
+            : 'Branch SMS test failed. Check branch SMS provider, sender ID, API key, and logs.';
 
         $this->redirect('/admin/branches/edit/' . $id);
     }
@@ -328,6 +475,25 @@ class BranchController extends Controller {
             ORDER BY COALESCE(b.name, 'Unassigned'), u.name ASC
         ");
         return $stmt->fetchAll();
+    }
+
+    private function currentUserBranch() {
+        $branchId = BranchScope::currentBranchId();
+        if (!$branchId) {
+            $_SESSION['error'] = 'No branch is assigned to your account. Ask the superadmin to assign your user to a branch.';
+            $this->redirect('/admin');
+        }
+
+        BranchScope::requireAccess($branchId);
+
+        $branchModel = new Branch();
+        $branch = $branchModel->find($branchId);
+        if (!$branch) {
+            $_SESSION['error'] = 'Your assigned branch could not be found.';
+            $this->redirect('/admin');
+        }
+
+        return $branch;
     }
 
     private function activeBranchCount() {

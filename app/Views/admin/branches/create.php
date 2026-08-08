@@ -119,6 +119,27 @@
                 </div>
             </div>
 
+            <div class="border-t border-gray-100 pt-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">Branch SMS Settings</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Provider</label>
+                        <select name="sms_provider" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent">
+                            <option value="">Disabled</option>
+                            <option value="termii">Termii</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sender ID</label>
+                        <input type="text" name="sms_sender_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent" placeholder="e.g. GHCC">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                        <input type="password" name="sms_api_key" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent">
+                    </div>
+                </div>
+            </div>
+
             <div class="pt-6 border-t border-gray-100">
                 <button type="submit" class="bg-brand-green text-white px-8 py-3 rounded-lg shadow-md hover:bg-brand-green-dark transition-all duration-200 font-bold">
                     Create Branch

@@ -122,6 +122,30 @@
                 </button>
             </div>
 
+            <div class="border-t border-gray-100 pt-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-4">Branch SMS Settings</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Provider</label>
+                        <select name="sms_provider" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent">
+                            <option value="" <?= empty($branch['sms_provider']) ? 'selected' : '' ?>>Disabled</option>
+                            <option value="termii" <?= ($branch['sms_provider'] ?? '') === 'termii' ? 'selected' : '' ?>>Termii</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sender ID</label>
+                        <input type="text" name="sms_sender_id" value="<?= htmlspecialchars($branch['sms_sender_id'] ?? '') ?>" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent" placeholder="e.g. GHCC">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                        <input type="password" name="sms_api_key" value="" placeholder="<?= !empty($branch['sms_api_key']) ? 'Configured - leave blank to keep current key' : 'Enter SMS API key' ?>" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-green-500 focus:border-transparent">
+                    </div>
+                </div>
+                <button type="submit" formaction="<?= APP_URL ?>/admin/branches/test-sms/<?= $branch['id'] ?>" formmethod="POST" class="mt-4 inline-flex items-center px-5 py-3 rounded-lg border border-brand-green text-brand-green font-bold hover:bg-brand-green hover:text-white transition-colors">
+                    <i class="fas fa-paper-plane mr-2"></i> Send Branch SMS Test
+                </button>
+            </div>
+
             <div class="pt-6 border-t border-gray-100">
                 <button type="submit" class="bg-brand-green text-white px-8 py-3 rounded-lg shadow-md hover:bg-brand-green-dark transition-all duration-200 font-bold">
                     Save Branch
