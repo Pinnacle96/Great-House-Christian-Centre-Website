@@ -29,6 +29,55 @@
             }
         }
     </style>
+    <script>
+        window.toggleMobileMenu = function() {
+            var mobileSidebar = document.getElementById('mobileSidebar');
+            var mobileOverlay = document.getElementById('mobileOverlay');
+
+            if (!mobileSidebar || !mobileOverlay) {
+                return;
+            }
+
+            if (mobileSidebar.className.indexOf('mobile-sidebar-open') === -1) {
+                mobileSidebar.className += ' mobile-sidebar-open';
+                mobileOverlay.className = mobileOverlay.className.replace(/\bhidden\b/g, '').trim();
+                document.body.className += document.body.className.indexOf('overflow-hidden') === -1 ? ' overflow-hidden' : '';
+            } else {
+                window.closeMobileMenu();
+            }
+        };
+
+        window.closeMobileMenu = function() {
+            var mobileSidebar = document.getElementById('mobileSidebar');
+            var mobileOverlay = document.getElementById('mobileOverlay');
+
+            if (!mobileSidebar || !mobileOverlay) {
+                return;
+            }
+
+            mobileSidebar.className = mobileSidebar.className.replace(/\bmobile-sidebar-open\b/g, '').trim();
+            if (mobileOverlay.className.indexOf('hidden') === -1) {
+                mobileOverlay.className += ' hidden';
+            }
+            document.body.className = document.body.className.replace(/\boverflow-hidden\b/g, '').trim();
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var menuButton = document.getElementById('adminMobileMenuButton');
+            var mobileOverlay = document.getElementById('mobileOverlay');
+
+            if (menuButton) {
+                menuButton.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    window.toggleMobileMenu();
+                });
+            }
+
+            if (mobileOverlay) {
+                mobileOverlay.addEventListener('click', window.closeMobileMenu);
+            }
+        });
+    </script>
 </head>
 <body class="bg-gray-50 font-sans antialiased">
     <!-- Mobile Menu Overlay -->
@@ -333,7 +382,7 @@
             <!-- Header -->
             <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-4 lg:px-6">
                 <div class="flex items-center">
-                    <button onclick="toggleMobileMenu()" class="lg:hidden text-gray-600 hover:text-brand-green-600 p-2 rounded-lg transition-colors">
+                    <button id="adminMobileMenuButton" type="button" class="lg:hidden text-gray-600 hover:text-brand-green-600 p-2 rounded-lg transition-colors" aria-label="Open navigation menu">
                         <i class="fas fa-bars text-lg"></i>
                     </button>
                     <h2 class="text-xl font-bold text-gray-800 ml-2 lg:ml-4"><?= $title ?? 'Dashboard' ?></h2>
